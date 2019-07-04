@@ -31,7 +31,7 @@ class Field:
     description: Optional[str]
 
     def __str__(self):
-        literal = f'{self.name}: {convert_type(self.ftype)}'
+        literal = f'{self.name}: {serialize_type(self.ftype)}'
         if self.description:
             literal = f'"{self.description}"\n' + literal
         return literal
@@ -43,12 +43,12 @@ class ResolverField(Field):
 
     def __str__(self):
         if not self.params:
-            literal = f'{self.name}(): {convert_type(self.ftype)}'
+            literal = f'{self.name}(): {serialize_type(self.ftype)}'
         else:
             literal = f'{self.name}' \
                 + '(\n' \
                 + patch_indents(self.print_args(), indent=1) \
-                + f'\n): {convert_type(self.ftype)}'
+                + f'\n): {serialize_type(self.ftype)}'
         if self.description:
             literal = f'"{self.description}"\n' + literal
         return literal
@@ -56,7 +56,7 @@ class ResolverField(Field):
     def print_args(self):
         literal = ''
         for name, param in self.params.items():
-            literal += f'{name}: {convert_type(param)}\n'
+            literal += f'{name}: {serialize_type(param)}\n'
         return literal[:-1]
 
 
@@ -81,7 +81,7 @@ class ObjectType(type):
                     params=cls.remove_self(sign.parameters),
                     description=inspect.getdoc(attr)
                 )
-        cls.check()
+        cls.validate()
         return cls
 
     def __str__(cls):
@@ -89,7 +89,7 @@ class ObjectType(type):
             f'{cls.print_description()}'
             + f'type {cls.__name__} '
             + '{\n'
-            + f'{patch_indents(cls.print_resolver_field(), indent=1)}'
+            + f'{patch_indents(cls.print_field(), indent=1)}'
             + '\n}'
         )
 
@@ -110,24 +110,27 @@ class ObjectType(type):
             indent=indent
         )
 
-    def print_resolver_field(cls, indent=0):
+    def print_field(cls, indent=0):
         literal = ''
         for _, field in cls.__fields__.items():
             literal += f'{field}\n'
         return patch_indents(literal[:-1], indent)
 
-    def check(cls):
+    def validate(cls):
         for _, field in cls.__fields__.items():
             if not isinstance(field, (Field, ResolverField)):
                 raise ValueError(f'{field} is an invalid field type')
-            try:
-                convert_type(field.ftype)
-            except ValueError:
-                raise ValueError(
-                    f'Field type needs be object or built-in type, rather than {field.ftype}'
-                )
+            # try:
+            serialize_type(field.ftype, except_types=(InputType))
+            # except ValueError:
+            #     raise ValueError(
+            #         f'Field type needs be object or built-in type, rather than {field.ftype}'
+            #     )
+            if isinstance(field, ResolverField):
+                for gtype in field.params.values():
+                    serialize_type(gtype)
             if isinstance(field.ftype, ObjectType):
-                field.ftype.check()
+                field.ftype.validate()
 
 
 class SchemaType(ObjectType):
@@ -136,43 +139,45 @@ class SchemaType(ObjectType):
     def __new__(cls, name, bases, attrs):
         attrs['registered_type'] = []
         cls = ObjectType.__new__(cls, name, bases, attrs)
-        cls.register_types(cls.__fields__)
+        cls.register_fields_type(cls.__fields__.values())
         return cls
 
-    def register_types(cls, fields):
-        for _, field in fields.items():
-            checking_type = None
-            if hasattr(field, 'ftype'):
-                if isinstance(field.ftype, ObjectType):
-                    checking_type = field.ftype
-                elif is_union(field.ftype) or is_list(field.ftype):
-                    cls.register_types({str(t): t for t in field.ftype.__args__})
-            elif isinstance(field, ObjectType):
-                checking_type = field
-            elif is_union(field) or is_list(field):
-                cls.register_types({str(t): t for t in field.__args__})
+    def register_fields_type(cls, fields):
+        param_return_types = []
+        for field in fields:
+            param_return_types.append(field.ftype)
+            if isinstance(field, ResolverField):
+                param_return_types.extend(field.params.values())
+        cls.register_types(param_return_types)
 
-            if checking_type:
-                cls.registered_type.append(checking_type)
-                if isinstance(checking_type, ResolverField):
-                    # register params
-                    cls.register_types(checking_type.params)
-                cls.register_types(checking_type.__fields__)
+    def register_types(cls, types):
+        for ptype in types:
+            if isinstance(ptype, ObjectType):
+                cls.registered_type.append(ptype)
+                cls.register_fields_type(ptype.__fields__.values())
+            elif is_union(ptype) or is_list(ptype):
+                cls.register_types(ptype.__args__)
+            elif isinstance(ptype, UnionType):
+                cls.registered_type.append(ptype)
+                cls.register_types(ptype.members)
+            elif isinstance(ptype, InputType):
+                cls.registered_type.append(ptype)
+                cls.register_fields_type(ptype.__fields__.values())
+            else:
+                # Other basic types, do not need be handled
+                pass
 
-                if is_union(checking_type) or is_list(checking_type):
-                    cls.register_types({str(t): t for t in checking_type.__args__})
-
-    def check(cls):
+    def validate(cls):
         for name, field in cls.__fields__.items():
             if name not in cls.VALID_ROOT_TYPES:
                 raise ValueError(
                     f'The valid root type must be {cls.VALID_ROOT_TYPES}, rather than {name}'
                 )
-            if not isinstance(field, (Field, ResolverField)):
+            if not isinstance(field, Field):
                 raise ValueError(f'{field} is an invalid field type')
             if not isinstance(field.ftype, ObjectType):
                 raise ValueError(f'Root type must be an Object, rather than {field.ftype}')
-        ObjectType.check(cls)
+        ObjectType.validate(cls)
 
     def __str__(cls):
         string = ''
@@ -182,7 +187,7 @@ class SchemaType(ObjectType):
             f'{cls.print_description()}'
             + f'schema '
             + '{\n'
-            + f'{patch_indents(cls.print_resolver_field(), indent=1)}'
+            + f'{patch_indents(cls.print_field(), indent=1)}'
             + '\n}'
         )
         return string + schema
@@ -218,30 +223,132 @@ class Object(metaclass=ObjectType):
                 )
             kwargs = {}
             for arg in node.arguments:
-                kwargs[to_snake_case(arg.name.value)] = self.__convert_graphql_type__(arg.value, field)
+                slot = field.params.get(arg.name.value)
+                if not slot:
+                    raise ValueError(f'Can not find {arg.value.name} as param in {field.name}')
+                kwargs[to_snake_case(arg.name.value)] = convert_value(arg, slot.ftype)
             result = resolver(**kwargs)
             if isinstance(result, Object):
                 result.__resolve__(node.selection_set.selections)
             self.resolver_results[to_snake_case(name)] = resolver(**kwargs)
 
-    def __convert_graphql_type__(self, value, field):
-        if isinstance(value, IntValueNode):
-            return int(value.value)
-        elif isinstance(value, FloatValueNode):
-            return float(value.value)
-        elif isinstance(value, BooleanValueNode):
-            return bool(value.value)
-        elif isinstance(value, StringValueNode):
-            return value.value
-        elif isinstance(value, NullValueNode):
-            return None
-        elif isinstance(value, ListValueNode):
-            return [self.__convert_graphql_type__(v) for v in value.values]
-        elif isinstance(value, EnumValueNode):
-            pass
-        elif isinstance(value, ObjectValueNode):
-            pass
-        raise ValueError(f'Can not convert {value} to basic type')
+
+class UnionType(type):
+
+    def __new__(cls, name, bases, attrs):
+        if 'members' not in attrs:
+            raise RuntimeError('Union type must has members attribute')
+        if not isinstance(attrs['members'], tuple):
+            raise RuntimeError('Members must be tuple')
+        for member in attrs['members']:
+            if not isinstance(member, ObjectType):
+                raise RuntimeError('The member of Union type must be Object')
+        return type.__new__(cls, name, bases, attrs)
+
+    def __str__(cls):
+        description = inspect.getdoc(cls)
+        description_literal = f'"""\n{inspect.getdoc(cls)}\n"""\n' if description else ''
+        return (
+            description_literal
+            + f'union {cls.__name__} =\n'
+            + f'{patch_indents(cls.print_union_member(), indent=1)}'
+        )
+
+    def print_union_member(cls):
+        literal = ''
+        for ptype in cls.members:
+            literal += f'| {ptype.__name__}\n'
+        return literal[:-1] if literal.endswith('\n') else literal
+
+
+class Union(metaclass=UnionType):
+    members = ()
+
+
+class EnumType(type):
+
+    def __str__(cls):
+        description = inspect.getdoc(cls)
+        description_literal = f'"""\n{inspect.getdoc(cls)}\n"""\n' if description else ''
+        return (
+            description_literal
+            + f'enum {cls.__name__} '
+            + '{\n'
+            + f'{patch_indents(cls.print_enum_values(), indent=1)}'
+            + '\n}'
+        )
+
+    def print_enum_values(cls):
+        literal = ''
+        for name, _ in cls.__dict__.items():
+            if name.startswith('__'):
+                continue
+            literal += (name + '\n')
+        return literal[:-1] if literal.endswith('\n') else literal
+
+
+class Enum(metaclass=EnumType):
+    pass
+
+
+class InputType(type):
+
+    def __new__(cls, name, bases, attrs):
+        attrs['__fields__'] = {}
+        attrs['__description__'] = None
+        cls = dataclasses.dataclass(type.__new__(cls, name, bases, attrs))
+        sign = inspect.signature(cls)
+        cls.__description__ = inspect.getdoc(cls)
+        for name, t in sign.parameters.items():
+            cls.__fields__[to_camel_case(name)] = Field(
+                name=to_camel_case(name), ftype=t.annotation, description=None
+            )
+        cls.validate()
+        return cls
+
+    def validate(cls):
+        for _, field in cls.__fields__.items():
+            if not isinstance(field, Field):
+                raise ValueError(f'{field} is an invalid field type')
+            try:
+                serialize_type(field.ftype, except_types=(ObjectType, UnionType))
+            except ValueError:
+                raise ValueError(
+                    f'Field type needs be object or built-in type, rather than {field.ftype}'
+                )
+            if isinstance(field.ftype, InputType):
+                field.ftype.validate()
+
+    def __str__(cls):
+        return (
+            f'{cls.print_description()}'
+            + f'input {cls.__name__} '
+            + '{\n'
+            + f'{patch_indents(cls.print_field(), indent=1)}'
+            + '\n}'
+        )
+
+    def print_description(cls, indent=0):
+        return patch_indents(
+            f'"""\n{cls.__description__}\n"""\n' if cls.__description__ else '',
+            indent=indent
+        )
+
+    def print_field(cls, indent=0):
+        literal = ''
+        for _, field in cls.__fields__.items():
+            literal += f'{field}\n'
+        return patch_indents(literal[:-1], indent)
+
+
+class Input(metaclass=InputType):
+
+    @classmethod
+    def __load__(cls, node):
+        data = {}
+        for field in node.fields:
+            data[field.name.value] = convert_value(field, cls)
+        return cls(**data)
 
 
 class Schema(metaclass=SchemaType):
@@ -268,19 +375,53 @@ VALID_BASIC_TYPES = {
 }
 
 
-def convert_type(gtype, nonnull=True):
+def convert_value(node, ptype):
+    if isinstance(node.value, IntValueNode):
+        return int(node.value.value)
+    elif isinstance(node.value, FloatValueNode):
+        return float(node.value.value)
+    elif isinstance(node.value, BooleanValueNode):
+        return bool(node.value.value)
+    elif isinstance(node.value, StringValueNode):
+        return node.value.value
+    elif isinstance(node.value, NullValueNode):
+        return None
+    elif isinstance(node.value, ListValueNode):
+        return [convert_value(v) for v in node.value.values]
+    elif isinstance(node.value, EnumValueNode):
+        value = getattr(ptype, node.value.value)
+        if not value:
+            raise ValueError(
+                f'{node.value.value} is not a valid member of {type}'
+            )
+    elif isinstance(node.value, ObjectValueNode):
+        return ptype.__fields__[node.name.value].__load__(node.value.fields)
+    raise ValueError(f'Can not convert {node.value.value}')
+
+
+def serialize_type(gtype, nonnull=True, except_types=()):
+    if isinstance(gtype, except_types):
+        raise ValueError(f'{gtype} is not a valid type')
     literal = None
     if is_union(gtype):
         if is_optional(gtype):
-            return f'{convert_type(gtype.__args__[0], nonnull=False)}'
+            return f'{serialize_type(gtype.__args__[0], nonnull=False, except_types=except_types)}'
+        else:
+            raise ValueError(f'Native Union type is not supported except Optional')
     elif is_list(gtype):
-        literal = f'[{convert_type(gtype.__args__[0])}]'
+        literal = f'[{serialize_type(gtype.__args__[0], except_types=except_types)}]'
     elif isinstance(gtype, ObjectType):
         literal = f'{gtype.__name__}'
     elif gtype in VALID_BASIC_TYPES:
         literal = VALID_BASIC_TYPES[gtype]
     elif gtype is None or gtype == type(None):  # noqa
         return 'null'
+    elif isinstance(gtype, UnionType):
+        literal = f'{gtype.__name__}'
+    elif isinstance(gtype, EnumType):
+        literal = f'{gtype.__name__}'
+    elif isinstance(gtype, InputType):
+        literal = f'{gtype.__name__}'
     else:
         raise ValueError(f'Can not convert type {gtype} to GraphQL type')
 
