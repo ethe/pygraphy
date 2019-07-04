@@ -120,12 +120,7 @@ class ObjectType(type):
         for _, field in cls.__fields__.items():
             if not isinstance(field, (Field, ResolverField)):
                 raise ValueError(f'{field} is an invalid field type')
-            # try:
             serialize_type(field.ftype, except_types=(InputType))
-            # except ValueError:
-            #     raise ValueError(
-            #         f'Field type needs be object or built-in type, rather than {field.ftype}'
-            #     )
             if isinstance(field, ResolverField):
                 for gtype in field.params.values():
                     serialize_type(gtype)
