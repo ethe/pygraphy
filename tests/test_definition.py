@@ -20,11 +20,13 @@ def test_model_definition():
             pass
 
     assert Foo.__fields__ == {
-        'a': Field(name='a', ftype=str, description=None),
+        'a': Field(name='a', _ftype=str, description=None, _obj=Foo),
         'foo': ResolverField(
             name='foo',
-            ftype=Union[str, None],
-            description='description foo', params={'a': int}
+            _ftype=Union[str, None],
+            description='description foo',
+            _params={'a': int},
+            _obj=Foo
         )
     }
     assert Foo.__description__ == "description bar"
