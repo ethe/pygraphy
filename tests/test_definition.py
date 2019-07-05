@@ -37,6 +37,8 @@ def test_model_definition():
             def foo(self, a: int) -> Dict:
                 "description foo"
                 pass
+
+        str(Foo)
     except ValueError:
         return
     assert False  # never reached
@@ -195,6 +197,55 @@ type Bar {
 
 """
 PySchema(query: tests.test_definition.test_schema_definition.<locals>.Query)
+"""
+schema {
+  query: Query!
+}'''
+
+
+# the type which literal annotation refers to should be defined in top lovel
+class Foo(Object):
+    a: Optional['Bar']
+
+
+class Bar(Object):
+    a: Optional['Foo']
+
+
+def test_circular_definition():
+    class Query(Object):
+        @Object.field
+        def foo_a(self, a: str) -> 'Bar':
+            return 'test'
+
+    class PySchema(Schema):
+        query: Query
+
+    assert str(PySchema) == '''"""
+Query()
+"""
+type Query {
+  fooA(
+    a: String!
+  ): Bar!
+}
+
+"""
+Bar(a: Union[ForwardRef('Foo'), NoneType])
+"""
+type Bar {
+  a: Foo
+}
+
+"""
+Foo(a: Union[ForwardRef('Bar'), NoneType])
+"""
+type Foo {
+  a: Bar
+}
+
+"""
+PySchema(query: tests.test_definition.test_circular_definition.<locals>.Query)
 """
 schema {
   query: Query!
