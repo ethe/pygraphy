@@ -42,7 +42,7 @@ class Query(pygraphql.Object):
         return None
 
     @pygraphql.field
-    def human(self, id: str) -> Optional[Human]:
+    def human(self, id: str = '1234') -> Optional[Human]:
         return Human(
             id=id, name='foo', appears_in=[Episode.NEWHOPE, Episode.EMPIRE], home_planet='Mars'
         )

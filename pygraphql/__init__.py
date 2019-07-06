@@ -98,13 +98,13 @@ class Field:
 
 @dataclasses.dataclass
 class ResolverField(Field):
-    _params: Mapping[str, type]
+    _params: Mapping[str, inspect.Parameter]
 
     @property
     def params(self):
         param_dict = {}
         for name, param in self._params.items():
-            param_dict[name] = self.replace_forwarded_type(param)
+            param_dict[name] = self.replace_forwarded_type(param.annotation)
         return param_dict
 
     def __str__(self):
@@ -122,8 +122,12 @@ class ResolverField(Field):
     def print_args(self):
         literal = ''
         for name, param in self.params.items():
-            literal += f'{to_camel_case(name)}: {print_type(param)}\n'
+            literal += f'{to_camel_case(name)}: {print_type(param)}{self.print_default_value(name)}\n'
         return literal[:-1]
+
+    def print_default_value(self, name):
+        default = self._params[name].default
+        return f' = {json.dumps(default)}' if default != inspect._empty else ''
 
 
 class GraphQLType(type):
@@ -189,7 +193,7 @@ class ResolvableType(FieldableType):
             if first_param:
                 first_param = False
                 continue
-            result[name] = param.annotation
+            result[name] = param
         return result
 
 
@@ -230,17 +234,6 @@ class ObjectType(InterfaceType):
             else:
                 literal += f' & {base.__name__}'
         return literal
-
-    @staticmethod
-    def remove_self(param_dict):
-        result = {}
-        first_param = True
-        for name, param in param_dict.items():
-            if first_param:
-                first_param = False
-                continue
-            result[name] = param.annotation
-        return result
 
     def validate(cls):
         if cls.__validated__:
