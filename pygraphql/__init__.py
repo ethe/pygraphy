@@ -11,8 +11,9 @@ from typing import (
     List
 )
 from graphql.language import parse
-from graphql.language.ast import OperationDefinitionNode, OperationType
 from graphql.language.ast import (
+    OperationDefinitionNode,
+    OperationType,
     IntValueNode,
     FloatValueNode,
     BooleanValueNode,
@@ -20,7 +21,9 @@ from graphql.language.ast import (
     NullValueNode,
     EnumValueNode,
     ListValueNode,
-    ObjectValueNode
+    ObjectValueNode,
+    InlineFragmentNode,
+    FragmentSpreadNode
 )
 from .utils import (
     patch_indents,
@@ -39,13 +42,12 @@ class GraphQLEncoder(json.JSONEncoder):
         if isinstance(obj, Object):
             attrs = {}
             for field in obj.__fields__.values():
-                snake_name = to_snake_case(field.name)
                 if isinstance(field, ResolverField):
-                    if snake_name in obj.resolver_results:
-                        attrs[field.name] = obj.resolver_results[snake_name]
+                    if field.name in obj.resolver_results:
+                        attrs[to_camel_case(field.name)] = obj.resolver_results[field.name]
                 elif isinstance(field, Field):
-                    if hasattr(obj, snake_name):
-                        attrs['snake_name'] = getattr(obj, snake_name)
+                    if hasattr(obj, field.name):
+                        attrs[to_camel_case(field.name)] = getattr(obj, field.name)
             return attrs
         return super().default(obj)
 
@@ -58,7 +60,7 @@ class Field:
     description: Optional[str]
 
     def __str__(self):
-        literal = f'{self.name}: {print_type(self.ftype)}'
+        literal = f'{to_camel_case(self.name)}: {print_type(self.ftype)}'
         if self.description:
             literal = f'"{self.description}"\n' + literal
         return literal
@@ -107,9 +109,9 @@ class ResolverField(Field):
 
     def __str__(self):
         if not self.params:
-            literal = f'{self.name}(): {print_type(self.ftype)}'
+            literal = f'{to_camel_case(self.name)}: {print_type(self.ftype)}'
         else:
-            literal = f'{self.name}' \
+            literal = f'{to_camel_case(self.name)}' \
                 + '(\n' \
                 + patch_indents(self.print_args(), indent=1) \
                 + f'\n): {print_type(self.ftype)}'
@@ -120,47 +122,64 @@ class ResolverField(Field):
     def print_args(self):
         literal = ''
         for name, param in self.params.items():
-            literal += f'{name}: {print_type(param)}\n'
+            literal += f'{to_camel_case(name)}: {print_type(param)}\n'
         return literal[:-1]
 
 
 class GraphQLType(type):
-    pass
+
+    def print_description(cls, indent=0):
+        return patch_indents(
+            f'"""\n{cls.__description__}\n"""\n' if cls.__description__ else '',
+            indent=indent
+        )
 
 
-class ObjectType(GraphQLType):
+def field(method):
+    """
+    Mark class method as a resolver
+    """
+    method.__is_field__ = True
+    return method
+
+
+class FieldableType(GraphQLType):
 
     def __new__(cls, name, bases, attrs):
         attrs['__fields__'] = {}
         attrs['__description__'] = None
         attrs['__validated__'] = True
-        cls = dataclasses.dataclass(type.__new__(cls, name, bases, attrs))
+        cls = dataclasses.dataclass(super().__new__(cls, name, bases, attrs))
         sign = inspect.signature(cls)
         cls.__description__ = inspect.getdoc(cls)
         for name, t in sign.parameters.items():
-            cls.__fields__[to_camel_case(name)] = Field(
-                name=to_camel_case(name), _ftype=t.annotation, description=None, _obj=cls
+            cls.__fields__[name] = Field(
+                name=name, _ftype=t.annotation, description=None, _obj=cls
             )
+        return cls
+
+    def print_field(cls, indent=0):
+        literal = ''
+        for _, field in cls.__fields__.items():
+            literal += f'{field}\n'
+        return patch_indents(literal[:-1], indent)
+
+
+class ResolvableType(FieldableType):
+
+    def __new__(cls, name, bases, attrs):
+        cls = super().__new__(cls, name, bases, attrs)
         for name, attr in attrs.items():
             if hasattr(attr, '__is_field__'):
                 sign = inspect.signature(attr)
-                cls.__fields__[to_camel_case(name)] = ResolverField(
-                    name=to_camel_case(name),
+                cls.__fields__[name] = ResolverField(
+                    name=name,
                     _ftype=sign.return_annotation,
                     _params=cls.remove_self(sign.parameters),
                     description=inspect.getdoc(attr),
                     _obj=cls
                 )
         return cls
-
-    def __str__(cls):
-        return (
-            f'{cls.print_description()}'
-            + f'type {cls.__name__} '
-            + '{\n'
-            + f'{patch_indents(cls.print_field(), indent=1)}'
-            + '\n}'
-        )
 
     @staticmethod
     def remove_self(param_dict):
@@ -173,17 +192,55 @@ class ObjectType(GraphQLType):
             result[name] = param.annotation
         return result
 
-    def print_description(cls, indent=0):
-        return patch_indents(
-            f'"""\n{cls.__description__}\n"""\n' if cls.__description__ else '',
-            indent=indent
+
+class InterfaceType(ResolvableType):
+
+    def __str__(cls):
+        return (
+            f'{cls.print_description()}'
+            + f'interface {cls.__name__} '
+            + '{\n'
+            + f'{patch_indents(cls.print_field(), indent=1)}'
+            + '\n}'
         )
 
-    def print_field(cls, indent=0):
+
+class Interface(metaclass=InterfaceType):
+    pass
+
+
+class ObjectType(InterfaceType):
+
+    def __str__(cls):
+        return (
+            f'{cls.print_description()}'
+            + f'type {cls.__name__}{cls.print_interface_implement()} '
+            + '{\n'
+            + f'{patch_indents(cls.print_field(), indent=1)}'
+            + '\n}'
+        )
+
+    def print_interface_implement(cls):
         literal = ''
-        for _, field in cls.__fields__.items():
-            literal += f'{field}\n'
-        return patch_indents(literal[:-1], indent)
+        for base in cls.__bases__:
+            if isinstance(base, ObjectType):
+                continue
+            if not literal:
+                literal = f' implements {base.__name__}'
+            else:
+                literal += f' & {base.__name__}'
+        return literal
+
+    @staticmethod
+    def remove_self(param_dict):
+        result = {}
+        first_param = True
+        for name, param in param_dict.items():
+            if first_param:
+                first_param = False
+                continue
+            result[name] = param.annotation
+        return result
 
     def validate(cls):
         if cls.__validated__:
@@ -202,19 +259,20 @@ class ObjectType(GraphQLType):
 
 class Object(metaclass=ObjectType):
 
-    @classmethod
-    def field(cls, method):
-        """
-        Mark class method as a resolver
-        """
-        method.__is_field__ = True
-        return method
-
-    def __resolve__(self, nodes):
+    def __resolve__(self, root_node, nodes):
         self.resolver_results = {}
         for node in nodes:
+            if isinstance(node, InlineFragmentNode):
+                if node.type_condition == self.__class__.__name__:
+                    self.__resolve__(root_node, node.selection_set.selections)
+            elif isinstance(node, FragmentSpreadNode):
+                for subroot_node in root_node:
+                    if node.name.value == subroot_node.name.value:
+                        self.__resolve__(root_node, subroot_node.selection_set.selections)
+                        break
+
             name = node.name.value
-            field = self.__fields__.get(name)
+            field = self.__fields__.get(to_snake_case(name))
             if not field:
                 raise GraphQLError(
                     f"Cannot query field '{name}' on type '{type(self)}'.",
@@ -228,6 +286,7 @@ class Object(metaclass=ObjectType):
                     f"Cannot query field '{name}' on type '{type(self)}'.",
                     node.loc.source.get_location(node.name.loc.start)
                 )
+
             kwargs = {}
             for arg in node.arguments:
                 slot = field.params.get(arg.name.value)
@@ -235,10 +294,50 @@ class Object(metaclass=ObjectType):
                     raise ValueError(f'Can not find {arg.value.name} as param in {field.name}')
                 slot_type = slot if slot in VALID_BASIC_TYPES else slot.ftype
                 kwargs[to_snake_case(arg.name.value)] = load_literal_value(arg, slot_type)
+
             result = resolver(**kwargs)
+
+            if not self.__check_return_type__(resolver, result):
+                raise ValueError(f'{result} is not a valid return value to {resolver}')
             if isinstance(result, Object):
-                result.__resolve__(node.selection_set.selections)
-            self.resolver_results[to_snake_case(name)] = resolver(**kwargs)
+                result.__resolve__(root_node, node.selection_set.selections)
+            self.resolver_results[to_snake_case(name)] = result
+
+        self.__replace_enum__()
+
+    def __replace_enum__(self):
+        for name, field in self.__fields__.items():
+            if is_list(field.ftype):
+                if not isinstance(field.ftype.__args__[0], EnumType):
+                    continue
+                enum_type = field.ftype.__args__[0]
+            else:
+                if not isinstance(field.ftype, EnumType):
+                    continue
+                enum_type = field.ftype
+
+            if isinstance(field.ftype, ResolverField):
+                if name not in self.resolver_results:
+                    continue
+                self.resolver_results[name] = enum_type.translate(
+                    self.resolver_results[name]
+                )
+            else:
+                if not hasattr(self, name):
+                    continue
+                setattr(self, name, enum_type.translate(getattr(self, name)))
+
+    @staticmethod
+    def __check_return_type__(resolver, result):
+        return_type = inspect.signature(resolver).return_annotation
+        if is_union(return_type) or is_list(return_type):
+            for type_arg in return_type.__args__:
+                if isinstance(result, type_arg):
+                    return True
+        elif isinstance(result, return_type):
+            return True
+
+        return False
 
 
 class SchemaType(ObjectType):
@@ -246,7 +345,7 @@ class SchemaType(ObjectType):
 
     def __new__(cls, name, bases, attrs):
         attrs['registered_type'] = []
-        cls = ObjectType.__new__(cls, name, bases, attrs)
+        cls = super().__new__(cls, name, bases, attrs)
         cls.validated_type = []
         cls.validate()
         cls.register_fields_type(cls.__fields__.values())
@@ -277,6 +376,10 @@ class SchemaType(ObjectType):
             elif isinstance(ptype, InputType):
                 cls.registered_type.append(ptype)
                 cls.register_fields_type(ptype.__fields__.values())
+            elif isinstance(ptype, InterfaceType):
+                cls.registered_type.append(ptype)
+                cls.register_fields_type(ptype.__fields__.values())
+                cls.register_types(ptype.__subclasses__())
             else:
                 # Other basic types, do not need be handled
                 pass
@@ -318,7 +421,7 @@ class Schema(metaclass=SchemaType):
             if definition.operation is OperationType.QUERY:
                 query_object = cls.__fields__['query'].ftype()
                 query_object.__resolve__(
-                    definition.selection_set.selections
+                    document.definitions, definition.selection_set.selections
                 )
                 return json.dumps(query_object, cls=GraphQLEncoder)
 
@@ -333,7 +436,7 @@ class UnionType(GraphQLType):
         for member in attrs['members']:
             if not isinstance(member, ObjectType):
                 raise RuntimeError('The member of Union type must be Object')
-        return type.__new__(cls, name, bases, attrs)
+        return super().__new__(cls, name, bases, attrs)
 
     def __str__(cls):
         description = inspect.getdoc(cls)
@@ -378,23 +481,22 @@ class EnumType(GraphQLType):
 
 
 class Enum(metaclass=EnumType):
-    pass
+
+    @classmethod
+    def translate(cls, member_value):
+        if isinstance(member_value, list):
+            return [cls.translate_value(m) for m in member_value]
+        else:
+            return cls.translate_value(member_value)
+
+    @classmethod
+    def translate_value(cls, value):
+        for name in dir(cls):
+            if getattr(cls, name) == value:
+                return name
 
 
-class InputType(GraphQLType):
-
-    def __new__(cls, name, bases, attrs):
-        attrs['__fields__'] = {}
-        attrs['__description__'] = None
-        cls = dataclasses.dataclass(type.__new__(cls, name, bases, attrs))
-        sign = inspect.signature(cls)
-        cls.__description__ = inspect.getdoc(cls)
-        for name, t in sign.parameters.items():
-            cls.__fields__[to_camel_case(name)] = Field(
-                name=to_camel_case(name), _ftype=t.annotation, description=None, _obj=cls
-            )
-        cls.validate()
-        return cls
+class InputType(FieldableType):
 
     def validate(cls):
         for _, field in cls.__fields__.items():
@@ -416,12 +518,6 @@ class InputType(GraphQLType):
             + '{\n'
             + f'{patch_indents(cls.print_field(), indent=1)}'
             + '\n}'
-        )
-
-    def print_description(cls, indent=0):
-        return patch_indents(
-            f'"""\n{cls.__description__}\n"""\n' if cls.__description__ else '',
-            indent=indent
         )
 
     def print_field(cls, indent=0):
@@ -495,6 +591,8 @@ def print_type(gtype, nonnull=True, except_types=()):
     elif isinstance(gtype, EnumType):
         literal = f'{gtype.__name__}'
     elif isinstance(gtype, InputType):
+        literal = f'{gtype.__name__}'
+    elif isinstance(gtype, InterfaceType):
         literal = f'{gtype.__name__}'
     else:
         raise ValueError(f'Can not convert type {gtype} to GraphQL type')

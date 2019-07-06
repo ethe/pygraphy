@@ -6,7 +6,9 @@ from pygraphql import (
     Enum,
     Union as GraphQLUnion,
     Input,
-    Schema
+    Schema,
+    Interface,
+    field
 )
 
 
@@ -14,7 +16,7 @@ def test_model_definition():
     class Foo(Object):
         "description bar"
         a: str
-        @Object.field
+        @field
         def foo(self, a: int) -> Optional[str]:
             "description foo"
             pass
@@ -33,7 +35,7 @@ def test_model_definition():
 
     try:
         class Foo(Object):
-            @Object.field
+            @field
             def foo(self, a: int) -> Dict:
                 "description foo"
                 pass
@@ -48,7 +50,7 @@ def test_resolver_field_definition():
     class Foo(Object):
         "description bar"
         a: str
-        @Object.field
+        @field
         def foo(self, a: int) -> Optional[str]:
             "description foo"
             pass
@@ -70,7 +72,7 @@ def test_model_literal():
     class Foo(Object):
         "description bar"
         a: str
-        @Object.field
+        @field
         def foo(self, a: int) -> Optional[List[str]]:
             "description foo"
             pass
@@ -112,7 +114,7 @@ def test_input_definition():
         b: Foo
 
     class Query(Object):
-        @Object.field
+        @field
         def foo_a(self, a: Bar) -> Optional[str]:
             return 'test'
 
@@ -161,7 +163,7 @@ def test_schema_definition():
         members = (Foo, Bar)
 
     class Query(Object):
-        @Object.field
+        @field
         def foo_a(self, a: FooBar) -> Optional[str]:
             return 'test'
 
@@ -214,7 +216,7 @@ class Bar(Object):
 
 def test_circular_definition():
     class Query(Object):
-        @Object.field
+        @field
         def foo_a(self, a: str) -> 'Bar':
             return 'test'
 
@@ -246,6 +248,56 @@ type Foo {
 
 """
 PySchema(query: tests.test_definition.test_circular_definition.<locals>.Query)
+"""
+schema {
+  query: Query!
+}'''
+
+
+def test_interface():
+    class Foo(Interface):
+        a: str
+
+    class Baz(Interface):
+        b: int
+
+    class Bar(Object, Foo, Baz):
+        pass
+
+    class Query(Object):
+        @field
+        def get_foo(self, a: str) -> Foo:
+            return Bar(a='test')
+
+    class PySchema(Schema):
+        query: Query
+
+    assert str(PySchema) == '''"""
+Query()
+"""
+type Query {
+  getFoo(
+    a: String!
+  ): Foo!
+}
+
+"""
+Foo(a: str)
+"""
+interface Foo {
+  a: String!
+}
+
+"""
+Bar(b: int, a: str)
+"""
+type Bar implements Foo & Baz {
+  b: Int!
+  a: String!
+}
+
+"""
+PySchema(query: tests.test_definition.test_interface.<locals>.Query)
 """
 schema {
   query: Query!
