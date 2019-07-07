@@ -235,12 +235,14 @@ class ObjectType(InterfaceType):
 
 class Object(metaclass=ObjectType):
 
-    def __resolve__(self, root_node, nodes, error_collector):
+    def __resolve__(self, root_node, nodes, error_collector, path=[]):
         self.resolver_results = {}
         for node in nodes:
-            self.__resolve_fragment__(root_node, node, error_collector)
-
             name = node.name.value
+            path.append(name)
+
+            self.__resolve_fragment__(root_node, node, error_collector, path)
+
             snake_cases = to_snake_case(name)
             field = self.__fields__.get(snake_cases)
 
@@ -254,6 +256,7 @@ class Object(metaclass=ObjectType):
                 result = resolver(**kwargs)
             except Exception as e:
                 e.location = node.loc.source.get_location(node.loc.start)
+                e.path = path
                 error_collector.append(e)
                 result = None
 
@@ -267,24 +270,27 @@ class Object(metaclass=ObjectType):
                 )
 
             if isinstance(result, Object):
-                result.__resolve__(root_node, node.selection_set.selections, error_collector)
+                result.__resolve__(root_node, node.selection_set.selections, error_collector, path)
             self.resolver_results[snake_cases] = result
 
-    def __resolve_fragment__(self, root_node, node, error_collector):
+    def __resolve_fragment__(self, root_node, node, error_collector, path):
         if isinstance(node, InlineFragmentNode):
             if node.type_condition == self.__class__.__name__:
                 self.__resolve__(
                     root_node,
                     node.selection_set.selections,
-                    error_collector
+                    error_collector,
+                    path
                 )
         elif isinstance(node, FragmentSpreadNode):
             for subroot_node in root_node:
                 if node.name.value == subroot_node.name.value:
+                    path.append(subroot_node.name.value)
                     self.__resolve__(
                         root_node,
                         subroot_node.selection_set.selections,
-                        error_collector
+                        error_collector,
+                        path
                     )
                     break
 

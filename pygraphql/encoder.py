@@ -23,7 +23,7 @@ class GraphQLEncoder(json.JSONEncoder):
         elif isinstance(obj, Exception):
             return {
                 'message': str(obj),
-                'locations': [obj.location],
-                'path': []
+                'locations': [{'line': obj.location[0], 'column': obj.location[1]}],
+                'path': obj.path
             }
         return super().default(obj)
