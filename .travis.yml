@@ -11,7 +11,7 @@ matrix:
       sudo: true
 
 install:
-  - pip install codecov
+  - pip install tox codecov
 
 script:
   - tox -e py
