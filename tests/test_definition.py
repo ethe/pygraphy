@@ -87,7 +87,13 @@ def test_enum_definition():
     class Foo(Enum):
         BAR = 1
         BAZ = 2
-    assert str(Foo) == 'enum Foo {\n  BAR\n  BAZ\n}'
+    assert str(Foo) == '''"""
+An enumeration.
+"""
+enum Foo {
+  BAR
+  BAZ
+}'''
 
 
 def test_union_definition():

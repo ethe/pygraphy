@@ -285,8 +285,7 @@ class Object(metaclass=ObjectType):
                 slot = field.params.get(arg.name.value)
                 if not slot:
                     raise ValueError(f'Can not find {arg.value.name} as param in {field.name}')
-                slot_type = slot if slot in VALID_BASIC_TYPES else slot.ftype
-                kwargs[to_snake_case(arg.name.value)] = load_literal_value(arg, slot_type)
+                kwargs[to_snake_case(arg.name.value)] = load_literal_value(arg, slot)
 
             result = resolver(**kwargs)
 
@@ -381,14 +380,19 @@ class SchemaType(ObjectType):
 
 class Schema(metaclass=SchemaType):
 
+    FIELD_MAP = {
+        OperationType.QUERY: 'query',
+        OperationType.MUTATION: 'mutation'
+    }
+
     @classmethod
     def execute(cls, query):
         document = parse(query)
         for definition in document.definitions:
             if not isinstance(definition, OperationDefinitionNode):
                 continue
-            if definition.operation is OperationType.QUERY:
-                query_object = cls.__fields__['query'].ftype()
+            if definition.operation in (OperationType.QUERY, OperationType.MUTATION):
+                query_object = cls.__fields__[cls.FIELD_MAP[definition.operation]].ftype()
                 query_object.__resolve__(
                     document.definitions, definition.selection_set.selections
                 )
@@ -514,7 +518,7 @@ def load_literal_value(node, ptype):
                 f'{node.value.value} is not a valid member of {type}'
             )
     elif isinstance(node.value, ObjectValueNode):
-        return ptype.__fields__[node.name.value].__load__(node.value.fields)
+        return ptype.__load__(node.value)
     raise ValueError(f'Can not convert {node.value.value}')
 
 
