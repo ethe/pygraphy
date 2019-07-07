@@ -34,26 +34,8 @@ from .utils import (
     to_camel_case,
     to_snake_case
 )
-from .exceptions import GraphQLError
-
-
-class GraphQLEncoder(json.JSONEncoder):
-
-    def default(self, obj):
-        if isinstance(obj, Object):
-            attrs = {}
-            for field in obj.__fields__.values():
-                camel_cases = to_camel_case(field.name)
-                if isinstance(field, ResolverField):
-                    if field.name in obj.resolver_results:
-                        attrs[camel_cases] = obj.resolver_results[field.name]
-                elif isinstance(field, Field):
-                    if hasattr(obj, field.name):
-                        attrs[camel_cases] = getattr(obj, field.name)
-            return attrs
-        elif issubclass(type(obj), Enum):
-            return str(obj).split('.')[-1]
-        return super().default(obj)
+from .exceptions import RuntimeError, ValidationError
+from .encoder import GraphQLEncoder
 
 
 @dataclasses.dataclass
@@ -96,7 +78,7 @@ class Field:
             except NameError:
                 continue
         if not actual_type:
-            raise NameError(f'Can not find type {forwarded_type}')
+            raise ValidationError(f'Can not find type {forwarded_type}')
         return actual_type
 
 
@@ -242,7 +224,7 @@ class ObjectType(InterfaceType):
         cls.__validated__ = True
         for _, field in cls.__fields__.items():
             if not isinstance(field, (Field, ResolverField)):
-                raise ValueError(f'{field} is an invalid field type')
+                raise ValidationError(f'{field} is an invalid field type')
             print_type(field.ftype, except_types=(InputType))
             if isinstance(field, ResolverField):
                 for gtype in field.params.values():
@@ -253,58 +235,90 @@ class ObjectType(InterfaceType):
 
 class Object(metaclass=ObjectType):
 
-    def __resolve__(self, root_node, nodes):
+    def __resolve__(self, root_node, nodes, error_collector):
         self.resolver_results = {}
         for node in nodes:
-            if isinstance(node, InlineFragmentNode):
-                if node.type_condition == self.__class__.__name__:
-                    self.__resolve__(root_node, node.selection_set.selections)
-            elif isinstance(node, FragmentSpreadNode):
-                for subroot_node in root_node:
-                    if node.name.value == subroot_node.name.value:
-                        self.__resolve__(
-                            root_node, subroot_node.selection_set.selections
-                        )
-                        break
+            self.__resolve_fragment__(root_node, node, error_collector)
 
             name = node.name.value
             snake_cases = to_snake_case(name)
             field = self.__fields__.get(snake_cases)
-            if not field:
-                raise GraphQLError(
-                    f"Cannot query field '{name}' on type '{type(self)}'.",
-                    node.loc.source.get_location(node.name.loc.start)
-                )
-            if not isinstance(field, ResolverField):
-                continue
-            resolver = getattr(self, snake_cases, None)
+
+            resolver = self.__get_resover__(name, node, field)
             if not resolver:
-                raise GraphQLError(
-                    f"Cannot query field '{name}' on type '{type(self)}'.",
-                    node.loc.source.get_location(node.name.loc.start)
-                )
+                continue
 
-            kwargs = {}
-            for arg in node.arguments:
-                slot = field.params.get(arg.name.value)
-                if not slot:
-                    raise ValueError(
-                        f'Can not find {arg.value.name}'
-                        f' as param in {field.name}'
-                    )
-                kwargs[to_snake_case(arg.name.value)] = load_literal_value(
-                    arg, slot
-                )
+            kwargs = self.__package_args__(node, field)
 
-            result = resolver(**kwargs)
+            try:
+                result = resolver(**kwargs)
+            except Exception as e:
+                e.location = node.loc.source.get_location(node.loc.start)
+                error_collector.append(e)
+                result = None
 
             if not self.__check_return_type__(resolver, result):
-                raise ValueError(
-                    f'{result} is not a valid return value to {resolver}'
+                if result is None and error_collector:
+                    return None
+                raise RuntimeError(
+                    f'{result} is not a valid return value to'
+                    f' {resolver.__name__}',
+                    node
                 )
+
             if isinstance(result, Object):
-                result.__resolve__(root_node, node.selection_set.selections)
+                result.__resolve__(root_node, node.selection_set.selections, error_collector)
             self.resolver_results[snake_cases] = result
+
+    def __resolve_fragment__(self, root_node, node, error_collector):
+        if isinstance(node, InlineFragmentNode):
+            if node.type_condition == self.__class__.__name__:
+                self.__resolve__(
+                    root_node,
+                    node.selection_set.selections,
+                    error_collector
+                )
+        elif isinstance(node, FragmentSpreadNode):
+            for subroot_node in root_node:
+                if node.name.value == subroot_node.name.value:
+                    self.__resolve__(
+                        root_node,
+                        subroot_node.selection_set.selections,
+                        error_collector
+                    )
+                    break
+
+    def __get_resover__(self, name, node, field):
+        snake_cases = to_snake_case(name)
+        if not field:
+            raise RuntimeError(
+                f"Cannot query field '{name}' on type '{type(self)}'.",
+                node
+            )
+        if not isinstance(field, ResolverField):
+            return None
+        resolver = getattr(self, snake_cases, None)
+        if not resolver:
+            raise RuntimeError(
+                f"Cannot query field '{name}' on type '{type(self)}'.",
+                node
+            )
+        return resolver
+
+    def __package_args__(self, node, field):
+        kwargs = {}
+        for arg in node.arguments:
+            slot = field.params.get(arg.name.value)
+            if not slot:
+                raise RuntimeError(
+                    f'Can not find {arg.value.name}'
+                    f' as param in {field.name}',
+                    node
+                )
+            kwargs[to_snake_case(arg.name.value)] = load_literal_value(
+                arg, slot
+            )
+        return kwargs
 
     @staticmethod
     def __check_return_type__(resolver, result):
@@ -366,15 +380,19 @@ class SchemaType(ObjectType):
     def validate(cls):
         for name, field in cls.__fields__.items():
             if name not in cls.VALID_ROOT_TYPES:
-                raise ValueError(
+                raise ValidationError(
                     f'The valid root type must be {cls.VALID_ROOT_TYPES},'
                     f' rather than {name}'
                 )
             if not isinstance(field, Field):
-                raise ValueError(f'{field} is an invalid field type')
-            if not isinstance(field.ftype, ObjectType):
-                raise ValueError(
-                    f'Root type must be an Object, rather than {field.ftype}'
+                raise ValidationError(f'{field} is an invalid field type')
+            if not is_optional(field.ftype):
+                raise ValidationError(
+                    f'The return type of root object should be Optional'
+                )
+            if not isinstance(field.ftype.__args__[0], ObjectType):
+                raise ValidationError(
+                    f'The typt of root object must be an Object, rather than {field.ftype}'
                 )
         ObjectType.validate(cls)
 
@@ -405,24 +423,42 @@ class Schema(metaclass=SchemaType):
         for definition in document.definitions:
             if not isinstance(definition, OperationDefinitionNode):
                 continue
-            if definition.operation in (OperationType.QUERY, OperationType.MUTATION):  # noqa
-                query_object = cls.__fields__[cls.FIELD_MAP[definition.operation]].ftype()  # noqa
-                query_object.__resolve__(
-                    document.definitions, definition.selection_set.selections
-                )
-                return json.dumps(query_object, cls=GraphQLEncoder)
+            if definition.operation in (
+                OperationType.QUERY,
+                OperationType.MUTATION
+            ):
+                query_object = cls.__fields__[
+                    cls.FIELD_MAP[definition.operation]
+                ].ftype.__args__[0]()
+                error_collector = []
+                try:
+                    query_object.__resolve__(
+                        document.definitions,
+                        definition.selection_set.selections,
+                        error_collector
+                    )
+                except Exception as e:
+                    error_collector.append(e)
+                if error_collector:
+                    return_root = {
+                        'errors': error_collector,
+                        'data': query_object
+                    }
+                else:
+                    return_root = query_object
+                return json.dumps(return_root, cls=GraphQLEncoder)
 
 
 class UnionType(GraphQLType):
 
     def __new__(cls, name, bases, attrs):
         if 'members' not in attrs:
-            raise RuntimeError('Union type must has members attribute')
+            raise ValidationError('Union type must has members attribute')
         if not isinstance(attrs['members'], tuple):
-            raise RuntimeError('Members must be tuple')
+            raise ValidationError('Members must be tuple')
         for member in attrs['members']:
             if not isinstance(member, ObjectType):
-                raise RuntimeError('The member of Union type must be Object')
+                raise ValidationError('The member of Union type must be Object')
         return super().__new__(cls, name, bases, attrs)
 
     def __str__(cls):
@@ -476,13 +512,13 @@ class InputType(FieldableType):
     def validate(cls):
         for _, field in cls.__fields__.items():
             if not isinstance(field, Field):
-                raise ValueError(f'{field} is an invalid field type')
+                raise ValidationError(f'{field} is an invalid field type')
             try:
                 print_type(
                     field.ftype, except_types=(ObjectType, UnionType)
                 )
             except ValueError:
-                raise ValueError(
+                raise ValidationError(
                     f'Field type needs be object or built-in type,'
                     f' rather than {field.ftype}'
                 )
@@ -508,7 +544,7 @@ class InputType(FieldableType):
 class Input(metaclass=InputType):
 
     @classmethod
-    def __load__(cls, node):
+    def __resolve__(cls, node):
         data = {}
         for field in node.fields:
             data[field.name.value] = load_literal_value(field, cls)
@@ -531,12 +567,13 @@ def load_literal_value(node, ptype):
     elif isinstance(node.value, EnumValueNode):
         value = getattr(ptype, node.value.value)
         if not value:
-            raise ValueError(
-                f'{node.value.value} is not a valid member of {type}'
+            raise RuntimeError(
+                f'{node.value.value} is not a valid member of {type}',
+                node
             )
     elif isinstance(node.value, ObjectValueNode):
-        return ptype.__load__(node.value)
-    raise ValueError(f'Can not convert {node.value.value}')
+        return ptype.__resolve__(node.value)
+    raise RuntimeError(f'Can not convert {node.value.value}', node)
 
 
 VALID_BASIC_TYPES = {
@@ -549,13 +586,13 @@ VALID_BASIC_TYPES = {
 
 def print_type(gtype, nonnull=True, except_types=()):
     if isinstance(gtype, except_types):
-        raise ValueError(f'{gtype} is not a valid type')
+        raise ValidationError(f'{gtype} is not a valid type')
     literal = None
     if is_union(gtype):
         if is_optional(gtype):
             return f'{print_type(gtype.__args__[0], nonnull=False, except_types=except_types)}'  # noqa
         else:
-            raise ValueError(
+            raise ValidationError(
                 f'Native Union type is not supported except Optional'
             )
     elif is_list(gtype):
@@ -575,7 +612,7 @@ def print_type(gtype, nonnull=True, except_types=()):
     elif isinstance(gtype, InterfaceType):
         literal = f'{gtype.__name__}'
     else:
-        raise ValueError(f'Can not convert type {gtype} to GraphQL type')
+        raise ValidationError(f'Can not convert type {gtype} to GraphQL type')
 
     if nonnull:
         literal += '!'

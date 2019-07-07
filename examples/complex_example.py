@@ -1,4 +1,5 @@
 import pygraphql
+from typing import Optional
 
 
 class GeoInput(pygraphql.Input):
@@ -29,5 +30,5 @@ class Mutation(pygraphql.Object):
 
 
 class Schema(pygraphql.Schema):
-    query: Query
-    mutation: Mutation
+    query: Optional[Query]
+    mutation: Optional[Mutation]

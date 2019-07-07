@@ -53,4 +53,4 @@ class Query(pygraphql.Object):
 
 
 class Schema(pygraphql.Schema):
-    query: Query
+    query: Optional[Query]

@@ -1,4 +1,5 @@
 import pygraphql
+from typing import Optional
 
 
 class Patron(pygraphql.Object):
@@ -15,4 +16,4 @@ class Query(pygraphql.Object):
 
 
 class Schema(pygraphql.Schema):
-    query: Query
+    query: Optional[Query]

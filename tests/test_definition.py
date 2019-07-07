@@ -11,6 +11,7 @@ from pygraphql.types import (
     Interface,
     field
 )
+from pygraphql.exceptions import ValidationError
 
 
 def test_model_definition():
@@ -45,7 +46,7 @@ def test_model_definition():
                 pass
 
         str(Foo)
-    except ValueError:
+    except ValidationError:
         return
     assert False  # never reached
 
@@ -111,7 +112,7 @@ def test_union_definition():
     try:
         class FooInt(GraphQLUnion):
             members = (Foo, int)
-    except RuntimeError:
+    except ValidationError:
         return
     assert False
 
@@ -129,7 +130,7 @@ def test_input_definition():
             return 'test'
 
     class PySchema(Schema):
-        query: Query
+        query: Optional[Query]
 
     assert str(PySchema) == '''"""
 Query()
@@ -155,10 +156,10 @@ input Foo {
 }
 
 """
-PySchema(query: tests.test_definition.test_input_definition.<locals>.Query)
+PySchema(query: Union[tests.test_definition.test_input_definition.<locals>.Query, NoneType])
 """
 schema {
-  query: Query!
+  query: Query
 }'''
 
 
@@ -178,7 +179,7 @@ def test_schema_definition():
             return 'test'
 
     class PySchema(Schema):
-        query: Query
+        query: Optional[Query]
 
     assert str(PySchema) == '''"""
 Query()
@@ -208,10 +209,10 @@ type Bar {
 }
 
 """
-PySchema(query: tests.test_definition.test_schema_definition.<locals>.Query)
+PySchema(query: Union[tests.test_definition.test_schema_definition.<locals>.Query, NoneType])
 """
 schema {
-  query: Query!
+  query: Query
 }'''
 
 
@@ -231,7 +232,7 @@ def test_circular_definition():
             return 'test'
 
     class PySchema(Schema):
-        query: Query
+        query: Optional[Query]
 
     assert str(PySchema) == '''"""
 Query()
@@ -257,10 +258,10 @@ type Foo {
 }
 
 """
-PySchema(query: tests.test_definition.test_circular_definition.<locals>.Query)
+PySchema(query: Union[tests.test_definition.test_circular_definition.<locals>.Query, NoneType])
 """
 schema {
-  query: Query!
+  query: Query
 }'''
 
 
@@ -280,7 +281,7 @@ def test_interface():
             return Bar(a='test')
 
     class PySchema(Schema):
-        query: Query
+        query: Optional[Query]
 
     assert str(PySchema) == '''"""
 Query()
@@ -307,8 +308,8 @@ type Bar implements Foo & Baz {
 }
 
 """
-PySchema(query: tests.test_definition.test_interface.<locals>.Query)
+PySchema(query: Union[tests.test_definition.test_interface.<locals>.Query, NoneType])
 """
 schema {
-  query: Query!
+  query: Query
 }'''
