@@ -1,6 +1,6 @@
 from typing import Optional, Union, Dict, List
 from inspect import _ParameterKind, Parameter
-from pygraphql import (
+from pygraphql.types import (
     Object,
     Field,
     ResolverField,

@@ -1,0 +1,20 @@
+sudo: false
+language: python
+
+matrix:
+  include:
+    # This is a workaround to make 3.7 running in travis-ci
+    # See https://github.com/travis-ci/travis-ci/issues/9815
+    - python: 3.7
+      script: tox -e py37
+      dist: xenial
+      sudo: true
+
+install:
+  - pip install codecov
+
+script:
+  - tox -e py
+
+after_success:
+  - cd tests && codecov
