@@ -1,4 +1,5 @@
 from typing import Optional, Union, Dict, List
+from inspect import _ParameterKind, Parameter
 from pygraphql import (
     Object,
     Field,
@@ -27,7 +28,10 @@ def test_model_definition():
             name='foo',
             _ftype=Union[str, None],
             description='description foo',
-            _params={'a': int},
+            _params={'a': Parameter(
+                'a', _ParameterKind.POSITIONAL_OR_KEYWORD, annotation=int
+                )
+            },
             _obj=Foo
         )
     }

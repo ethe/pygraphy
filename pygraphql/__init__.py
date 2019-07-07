@@ -10,6 +10,7 @@ from typing import (
     Union as PythonUnion,
     List
 )
+from enum import EnumMeta, Enum as PyEnum
 from graphql.language import parse
 from graphql.language.ast import (
     OperationDefinitionNode,
@@ -49,6 +50,8 @@ class GraphQLEncoder(json.JSONEncoder):
                     if hasattr(obj, field.name):
                         attrs[to_camel_case(field.name)] = getattr(obj, field.name)
             return attrs
+        elif issubclass(type(obj), Enum):
+            return str(obj).split('.')[-1]
         return super().default(obj)
 
 
@@ -169,7 +172,7 @@ class FieldableType(GraphQLType):
         return patch_indents(literal[:-1], indent)
 
 
-class ResolvableType(FieldableType):
+class InterfaceType(FieldableType):
 
     def __new__(cls, name, bases, attrs):
         cls = super().__new__(cls, name, bases, attrs)
@@ -195,9 +198,6 @@ class ResolvableType(FieldableType):
                 continue
             result[name] = param
         return result
-
-
-class InterfaceType(ResolvableType):
 
     def __str__(cls):
         return (
@@ -295,30 +295,6 @@ class Object(metaclass=ObjectType):
             if isinstance(result, Object):
                 result.__resolve__(root_node, node.selection_set.selections)
             self.resolver_results[to_snake_case(name)] = result
-
-        self.__replace_enum__()
-
-    def __replace_enum__(self):
-        for name, field in self.__fields__.items():
-            if is_list(field.ftype):
-                if not isinstance(field.ftype.__args__[0], EnumType):
-                    continue
-                enum_type = field.ftype.__args__[0]
-            else:
-                if not isinstance(field.ftype, EnumType):
-                    continue
-                enum_type = field.ftype
-
-            if isinstance(field.ftype, ResolverField):
-                if name not in self.resolver_results:
-                    continue
-                self.resolver_results[name] = enum_type.translate(
-                    self.resolver_results[name]
-                )
-            else:
-                if not hasattr(self, name):
-                    continue
-                setattr(self, name, enum_type.translate(getattr(self, name)))
 
     @staticmethod
     def __check_return_type__(resolver, result):
@@ -451,7 +427,7 @@ class Union(metaclass=UnionType):
     members = ()
 
 
-class EnumType(GraphQLType):
+class EnumType(EnumMeta):
 
     def __str__(cls):
         description = inspect.getdoc(cls)
@@ -467,26 +443,14 @@ class EnumType(GraphQLType):
     def print_enum_values(cls):
         literal = ''
         for name, _ in cls.__dict__.items():
-            if name.startswith('__'):
+            if name.startswith('_'):
                 continue
             literal += (name + '\n')
         return literal[:-1] if literal.endswith('\n') else literal
 
 
-class Enum(metaclass=EnumType):
-
-    @classmethod
-    def translate(cls, member_value):
-        if isinstance(member_value, list):
-            return [cls.translate_value(m) for m in member_value]
-        else:
-            return cls.translate_value(member_value)
-
-    @classmethod
-    def translate_value(cls, value):
-        for name in dir(cls):
-            if getattr(cls, name) == value:
-                return name
+class Enum(PyEnum, metaclass=EnumType):
+    pass
 
 
 class InputType(FieldableType):
