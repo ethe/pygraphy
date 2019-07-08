@@ -2,8 +2,6 @@ from typing import Optional, Union, Dict, List
 from inspect import _ParameterKind, Parameter
 from pygraphql.types import (
     Object,
-    Field,
-    ResolverField,
     Enum,
     Union as GraphQLUnion,
     Input,
@@ -11,6 +9,7 @@ from pygraphql.types import (
     Interface,
     field
 )
+from pygraphql.types.field import Field, ResolverField
 from pygraphql.exceptions import ValidationError
 
 

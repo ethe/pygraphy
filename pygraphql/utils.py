@@ -26,11 +26,30 @@ def is_list(annotation):
     return getattr(annotation, "__origin__", None) == list
 
 
-def to_camel_case(snake_str):
-    components = snake_str.split("_")
-    return components[0] + "".join(x.capitalize() if x else "_" for x in components[1:])  # noqa
+def to_camel_case(name):
+    has_prefix = False
+    if '__' in name:
+        has_prefix = True
+        without_prifix_name = ''.join(name.split('__')[1:])
+    else:
+        without_prifix_name = name
+    components = without_prifix_name.split("_")
+    res = components[0] + "".join(x.capitalize() if x else "_" for x in components[1:])  # noqa
+    return '__' + res if has_prefix else res
 
 
 def to_snake_case(name):
-    s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
-    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+    has_prefix = False
+    if '__' in name:
+        has_prefix = True
+        without_prifix_name = ''.join(name.split('__')[1:])
+    else:
+        without_prifix_name = name
+    s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", without_prifix_name)
+    res = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+    return '__' + res if has_prefix else res
+
+
+def meta(obj):
+    obj.__name__ = '__' + obj.__name__
+    return obj
