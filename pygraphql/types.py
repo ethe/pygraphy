@@ -1,5 +1,6 @@
 import sys
 import json
+from copy import copy
 import inspect
 import dataclasses
 from typing import (
@@ -239,9 +240,10 @@ class Object(metaclass=ObjectType):
         self.resolver_results = {}
         for node in nodes:
             name = node.name.value
-            path.append(name)
+            current_path = copy(path)
+            current_path.append(name)
 
-            self.__resolve_fragment__(root_node, node, error_collector, path)
+            self.__resolve_fragment__(root_node, node, error_collector, current_path)
 
             snake_cases = to_snake_case(name)
             field = self.__fields__.get(snake_cases)
@@ -256,7 +258,7 @@ class Object(metaclass=ObjectType):
                 result = resolver(**kwargs)
             except Exception as e:
                 e.location = node.loc.source.get_location(node.loc.start)
-                e.path = path
+                e.path = current_path
                 error_collector.append(e)
                 result = None
 
@@ -272,6 +274,7 @@ class Object(metaclass=ObjectType):
             if isinstance(result, Object):
                 result.__resolve__(root_node, node.selection_set.selections, error_collector, path)
             self.resolver_results[snake_cases] = result
+        return self
 
     def __resolve_fragment__(self, root_node, node, error_collector, path):
         if isinstance(node, InlineFragmentNode):
@@ -285,12 +288,13 @@ class Object(metaclass=ObjectType):
         elif isinstance(node, FragmentSpreadNode):
             for subroot_node in root_node:
                 if node.name.value == subroot_node.name.value:
-                    path.append(subroot_node.name.value)
+                    current_path = copy(path)
+                    current_path.append(subroot_node.name.value)
                     self.__resolve__(
                         root_node,
                         subroot_node.selection_set.selections,
                         error_collector,
-                        path
+                        current_path
                     )
                     break
 
@@ -438,7 +442,7 @@ class Schema(metaclass=SchemaType):
                 ].ftype.__args__[0]()
                 error_collector = []
                 try:
-                    query_object.__resolve__(
+                    query_object = query_object.__resolve__(
                         document.definitions,
                         definition.selection_set.selections,
                         error_collector

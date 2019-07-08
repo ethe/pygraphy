@@ -51,3 +51,13 @@ def test_complex_mutation():
     """
 
     assert ComplexSchema.execute(mutation) == r'{"createAddress": {"latlng": "(32.2,12)"}}'
+
+
+def test_raise_error():
+    query = """
+        query test {
+            exception(content: "test")
+        }
+    """
+
+    assert SimpleSchema.execute(query) == '{"errors": [{"message": "test", "locations": [{"line": 3, "column": 13}], "path": ["exception"]}], "data": null}'
