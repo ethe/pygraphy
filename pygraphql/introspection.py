@@ -151,10 +151,9 @@ class Type(Object):
         if not is_optional(self._type):
             return None
         else:
-            type = self._type.__args__[0]
-            if is_list(type):
+            if is_list(self.type):
                 return None
-            return print_type(type, nonnull=False)
+            return print_type(self.type, nonnull=False)
 
     @field
     def kind(self) -> TypeKind:
@@ -191,7 +190,9 @@ class Type(Object):
             interfaces = []
             for base in self.type.__bases__:
                 if issubclass(base, Interface):
-                    interfaces.append(base)
+                    t = Type()
+                    t._type = base
+                    interfaces.append(t)
             return interfaces
         return None
 
@@ -203,9 +204,19 @@ class Type(Object):
         if not is_optional(self._type) and is_list(self._type):
             return None
         if issubclass(self.type, Interface):
-            return self.type.__subclasses__()
+            types = []
+            for subclass in self.type.__subclasses__():
+                t = Type()
+                t._type = subclass
+                types.append(t)
+            return types
         if issubclass(self.type, Union):
-            return list(self.type.members)
+            types = []
+            for member in list(self.type.members):
+                t = Type()
+                t._type = subclass
+                types.append(t)
+            return types
         return None
 
     @field

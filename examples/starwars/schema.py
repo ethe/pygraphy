@@ -35,7 +35,7 @@ class Droid(pygraphql.Object, Character):
     primary_function: str
 
 
-class Query(pygraphql.Object):
+class Query(pygraphql.Query):
 
     @pygraphql.field
     def hero(self, episode: Episode) -> Optional[Character]:

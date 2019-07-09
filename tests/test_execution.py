@@ -12,7 +12,7 @@ def test_starwars_query():
         }
     """
     assert StarwarsSchema.execute(query) == \
-        '{"human": {"name": "foo"}}'
+        r'{"errors": null, "data": {"human": {"name": "foo"}}}'
 
 
 def test_simple_query():
@@ -26,7 +26,8 @@ def test_simple_query():
         }
     """
 
-    assert SimpleSchema.execute(query) == r'{"patron": {"id": "1", "name": "Syrus", "age": 27}}'
+    assert SimpleSchema.execute(query) == \
+        r'{"errors": null, "data": {"patron": {"id": "1", "name": "Syrus", "age": 27}}}'
 
 
 def test_complex_query():
@@ -38,7 +39,8 @@ def test_complex_query():
         }
     """
 
-    assert ComplexSchema.execute(query) == r'{"address": {"latlng": "(32.2,12)"}}'
+    assert ComplexSchema.execute(query) == \
+        r'{"errors": null, "data": {"address": {"latlng": "(32.2,12)"}}}'
 
 
 def test_complex_mutation():
@@ -55,7 +57,8 @@ def test_complex_mutation():
         }
     """
 
-    assert ComplexSchema.execute(mutation) == r'{"createAddress": {"latlng": "(32.2,12)", "foobar": [{}, {}, {}, {}, {}]}}'
+    assert ComplexSchema.execute(mutation) == \
+        r'{"errors": null, "data": {"createAddress": {"latlng": "(32.2,12)", "foobar": [{}, {}, {}, {}, {}]}}}'
 
     mutation = """
         mutation addAddress{
@@ -70,7 +73,8 @@ def test_complex_mutation():
         }
     """
 
-    assert ComplexSchema.execute(mutation) == r'{"createAddress": {"latlng": "(32.2,12)", "foobar": [{"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}]}}'
+    assert ComplexSchema.execute(mutation) == \
+        r'{"errors": null, "data": {"createAddress": {"latlng": "(32.2,12)", "foobar": [{"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}]}}}'
 
 
 def test_raise_error():
@@ -80,4 +84,5 @@ def test_raise_error():
         }
     """
 
-    assert SimpleSchema.execute(query) == '{"errors": [{"message": "test", "locations": [{"line": 3, "column": 13}], "path": ["exception"]}], "data": null}'
+    assert SimpleSchema.execute(query) == \
+        '{"errors": [{"message": "test", "locations": [{"line": 3, "column": 13}], "path": ["exception"]}], "data": null}'
