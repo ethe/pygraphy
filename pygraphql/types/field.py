@@ -120,7 +120,7 @@ class FieldableType(GraphQLType):
     def __new__(cls, name, bases, attrs):
         attrs['__fields__'] = {}
         attrs['__description__'] = None
-        attrs['__validated__'] = True
+        attrs['__validated__'] = False
         cls = dataclasses.dataclass(super().__new__(cls, name, bases, attrs))
         sign = inspect.signature(cls)
         cls.__description__ = inspect.getdoc(cls)
