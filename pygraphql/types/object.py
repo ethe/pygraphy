@@ -7,10 +7,11 @@ from graphql.language.ast import (
 from pygraphql.utils import (
     patch_indents,
     to_snake_case,
-    is_union,
-    is_list
+    is_list,
+    is_optional
 )
 from pygraphql.exceptions import RuntimeError, ValidationError
+from pygraphql import types
 from .interface import InterfaceType
 from .field import Field, ResolverField
 from .base import print_type, load_literal_value
@@ -45,8 +46,7 @@ class ObjectType(InterfaceType):
         for _, field in cls.__fields__.items():
             if not isinstance(field, (Field, ResolverField)):
                 raise ValidationError(f'{field} is an invalid field type')
-            from .input import InputType
-            print_type(field.ftype, except_types=(InputType))
+            print_type(field.ftype, except_types=(types.InputType))
             if isinstance(field, ResolverField):
                 for gtype in field.params.values():
                     print_type(gtype)
@@ -57,28 +57,35 @@ class ObjectType(InterfaceType):
 class Object(metaclass=ObjectType):
 
     def __resolve__(self, root_node, nodes, error_collector, path=[]):
-        self.resolver_results = {}
+        self.resolve_results = {}
         for node in nodes:
+            if hasattr(node, 'name'):
+                path = copy(path)
+                path.append(node.name.value)
+
+            returned = self.__resolve_fragment__(root_node, node, error_collector, path)
+            if returned:
+                continue
+
             name = node.name.value
-            current_path = copy(path)
-            current_path.append(name)
-
-            self.__resolve_fragment__(root_node, node, error_collector, current_path)
-
             snake_cases = to_snake_case(name)
             field = self.__fields__.get(snake_cases)
 
-            resolver = self.__get_resover__(name, node, field)
+            resolver = self.__get_resover__(name, node, field, path)
             if not resolver:
+                self.resolve_results[name] = getattr(self, snake_cases)
                 continue
 
-            kwargs = self.__package_args__(node, field)
+            kwargs = self.__package_args__(node, field, path)
 
             try:
                 result = resolver(**kwargs)
             except Exception as e:
+                # TODO: Use logger to print stack
+                import traceback
+                traceback.print_exc()
                 e.location = node.loc.source.get_location(node.loc.start)
-                e.path = current_path
+                e.path = path
                 error_collector.append(e)
                 result = None
 
@@ -88,24 +95,28 @@ class Object(metaclass=ObjectType):
                     return None
                 raise RuntimeError(
                     f'{result} is not a valid return value to'
-                    f' {resolver.__name__}',
-                    node
+                    f' {resolver.__name__}, please check {resolver.__name__}\'s type annotation',
+                    node,
+                    path
                 )
 
             if isinstance(result, Object):
                 result.__resolve__(root_node, node.selection_set.selections, error_collector, path)
-            self.resolver_results[snake_cases] = result
+            elif hasattr(result, 'iter') and isinstance(return_type.__args__[0], ObjectType):
+                for item in result:
+                    item.__resolve__(root_node, node.selection_set.selections, error_collector, path)
+            self.resolve_results[name] = result
         return self
 
     def __resolve_fragment__(self, root_node, node, error_collector, path):
         if isinstance(node, InlineFragmentNode):
-            if node.type_condition == self.__class__.__name__:
+            if node.type_condition.name.value == self.__class__.__name__:
                 self.__resolve__(
                     root_node,
                     node.selection_set.selections,
-                    error_collector,
-                    path
+                    error_collector
                 )
+            return True
         elif isinstance(node, FragmentSpreadNode):
             for subroot_node in root_node:
                 if node.name.value == subroot_node.name.value:
@@ -117,26 +128,32 @@ class Object(metaclass=ObjectType):
                         error_collector,
                         current_path
                     )
-                    break
+            return True
+        return False
 
-    def __get_resover__(self, name, node, field):
+    def __get_resover__(self, name, node, field, path):
         snake_cases = to_snake_case(name)
         if not field:
             raise RuntimeError(
                 f"Cannot query field '{name}' on type '{type(self)}'.",
-                node
+                node,
+                path
             )
         if not isinstance(field, ResolverField):
             return None
-        resolver = getattr(self, snake_cases, None)
+        if '__' in snake_cases:
+            resolver = getattr(self, f'_{self.__class__.__name__}{snake_cases}', None)
+        else:
+            resolver = getattr(self, snake_cases, None)
         if not resolver:
             raise RuntimeError(
                 f"Cannot query field '{name}' on type '{type(self)}'.",
-                node
+                node,
+                path
             )
         return resolver
 
-    def __package_args__(self, node, field):
+    def __package_args__(self, node, field, path):
         kwargs = {}
         for arg in node.arguments:
             slot = field.params.get(arg.name.value)
@@ -144,7 +161,8 @@ class Object(metaclass=ObjectType):
                 raise RuntimeError(
                     f'Can not find {arg.value.name}'
                     f' as param in {field.name}',
-                    node
+                    node,
+                    path
                 )
             kwargs[to_snake_case(arg.name.value)] = load_literal_value(
                 arg, slot
@@ -153,9 +171,16 @@ class Object(metaclass=ObjectType):
 
     @classmethod
     def __check_return_type__(cls, return_type, result):
-        if is_union(return_type) or is_list(return_type):
-            for type_arg in return_type.__args__:
-                return cls.__check_return_type__(type_arg, result)
+        if is_optional(return_type):
+            if result is None:
+                return True
+            return cls.__check_return_type__(return_type.__args__[0], result)
+        elif is_list(return_type):
+            return cls.__check_return_type__(return_type.__args__[0], result)
+        elif isinstance(return_type, types.UnionType):
+            for member in return_type.members:
+                if isinstance(result, member):
+                    return True
         elif isinstance(result, return_type):
             return True
 
