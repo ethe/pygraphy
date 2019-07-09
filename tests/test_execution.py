@@ -12,7 +12,7 @@ def test_starwars_query():
         }
     """
     assert StarwarsSchema.execute(query) == \
-        '{"human": {"id": "1000", "name": "foo", "appearsIn": ["NEWHOPE", "EMPIRE"], "homePlanet": "Mars"}}'
+        '{"human": {"name": "foo"}}'
 
 
 def test_simple_query():
@@ -46,11 +46,31 @@ def test_complex_mutation():
         mutation addAddress{
           createAddress(geo: {lat:32.2, lng:12}) {
             latlng
+            foobar {
+              ... on Bar {
+                b
+              }
+            }
           }
         }
     """
 
-    assert ComplexSchema.execute(mutation) == r'{"createAddress": {"latlng": "(32.2,12)"}}'
+    assert ComplexSchema.execute(mutation) == r'{"createAddress": {"latlng": "(32.2,12)", "foobar": {}}}'
+
+    mutation = """
+        mutation addAddress{
+          createAddress(geo: {lat:32.2, lng:12}) {
+            latlng
+            foobar {
+              ... on Foo {
+                a
+              }
+            }
+          }
+        }
+    """
+
+    assert ComplexSchema.execute(mutation) == r'{"createAddress": {"latlng": "(32.2,12)", "foobar": {"a": "test"}}}'
 
 
 def test_raise_error():

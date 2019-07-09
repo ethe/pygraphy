@@ -1,4 +1,6 @@
 import json
+import traceback
+import contextvars
 from graphql.language import parse
 from graphql.language.ast import (
     OperationDefinitionNode,
@@ -12,6 +14,7 @@ from pygraphql.utils import (
 )
 from pygraphql.encoder import GraphQLEncoder
 from pygraphql.exceptions import ValidationError
+from pygraphql.context import Context
 from .object import ObjectType
 from .field import Field, ResolverField
 from .union import UnionType
@@ -96,6 +99,9 @@ class SchemaType(ObjectType):
         return string + schema
 
 
+context: contextvars.ContextVar[Context] = contextvars.ContextVar('context')
+
+
 class Schema(metaclass=SchemaType):
 
     FIELD_MAP = {
@@ -117,6 +123,7 @@ class Schema(metaclass=SchemaType):
                     cls.FIELD_MAP[definition.operation]
                 ].ftype.__args__[0]()
                 error_collector = []
+                token = context.set(Context(schema=cls))
                 try:
                     query_object = query_object.__resolve__(
                         document.definitions,
@@ -124,7 +131,9 @@ class Schema(metaclass=SchemaType):
                         error_collector
                     )
                 except Exception as e:
+                    traceback.print_exc()
                     error_collector.append(e)
+                context.reset(token)
                 if error_collector:
                     return_root = {
                         'errors': error_collector,

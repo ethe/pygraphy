@@ -1,6 +1,17 @@
-from .types import Enum, Object, field, Schema as BaseSchema
 from typing import List, Optional
-from .utils import meta
+from .types import (
+    Enum,
+    Object,
+    field,
+    Schema as BaseSchema,
+    context,
+    Interface,
+    Union,
+    Enum,
+    Input
+)
+from .types.base import print_type
+from .utils import meta, is_optional, is_list, is_union
 
 
 @meta
@@ -60,6 +71,10 @@ class InputValue(Object):
     type: 'Type'
     default_value: Optional[str]
 
+    @field
+    def type(self) -> 'Type':
+        pass
+
 
 @meta
 class Field(Object):
@@ -73,35 +88,126 @@ class Field(Object):
 
 @meta
 class Type(Object):
-    kind: TypeKind
-    name: Optional[str]
-    description: Optional[str]
 
-    # OBJECT only
-    interfaces: Optional[List['Type']]
-    # INTERFACE and UNION only
-    possible_types: Optional[List['Type']]
-    # INPUT_OBJECT only
-    input_fields: Optional[List[InputValue]]
-    # NON_NULL and LIST only
-    of_type: Optional['Type']
+    @field
+    def name(self) -> Optional[str]:
+        return print_type(self._type, nonnull=False)
 
-    # ENUM only
+    @field
+    def kind(self) -> TypeKind:
+        if not is_optional(self._type):
+            return TypeKind.NON_NULL
+        if is_list(self._type):
+            return TypeKind.LIST
+        type = self._type.__args__[0]
+        if issubclass(type, (str, int, float, bool)):
+            return TypeKind.SCALAR
+        elif issubclass(type, Object):
+            return TypeKind.OBJECT
+        elif issubclass(type, Interface):
+            return TypeKind.INTERFACE
+        elif issubclass(type, Union):
+            return TypeKind.UNION
+        elif issubclass(type, Enum):
+            return TypeKind.ENUM
+        elif issubclass(type, Input):
+            return TypeKind.INPUT_OBJECT
+
+    @field
+    def description(self) -> Optional[str]:
+        return self.type.__description__
+
+    @field
+    def interfaces(self) -> Optional[List['Type']]:
+        """
+        OBJECT only
+        """
+        if not is_optional(self._type) and is_list(self._type):
+            return None
+        if issubclass(self.type, Object):
+            interfaces = []
+            for base in self.type.bases:
+                if issubclass(base, Interface):
+                    interfaces.append(base)
+            return interfaces
+        return None
+
+    @field
+    def possible_types(self) -> Optional[List['Type']]:
+        """
+        INTERFACE and UNION only
+        """
+        if not is_optional(self._type) and is_list(self._type):
+            return None
+        if issubclass(self.type, Interface):
+            return self.type.__subclasses__()
+        if issubclass(self.type, Union):
+            return list(self.type.members)
+        return None
+
+    @field
+    def input_fields(self) -> Optional[List[InputValue]]:
+        """
+        INPUT_OBJECT only
+        """
+        if not is_optional(self._type) and is_list(self._type):
+            return None
+        if issubclass(self.type, Input):
+            values = []
+            for field in self.type.__fields__:
+                values.append(InputValue(
+                    name=field.name,
+                    description=field.description,
+                    default_value=None
+                ))
+        return None
+
+    @field
+    def of_type(self) -> Optional['Type']:
+        """
+        NON_NULL and LIST only
+        """
+        if not is_optional(self._type):
+            of = Type()
+            of._type = self._type
+            return of
+        elif is_list(self._type):
+            of = Type()
+            of._type = self._type.__args__[0]
+            return of
+        return None
+
     @field
     def enum_values(self, include_deprecated: Optional[bool] = False) -> Optional[List[EnumValue]]:
-        pass
+        """
+        ENUM only
+        """
+        if not is_optional(self._type) and is_list(self._type):
+            return None
+        if issubclass(self.type, Enum):
+            values = []
+            for attr in dir()
 
-    # OBJECT and INTERFACE only
     @field
     def fields(self, include_deprecated: Optional[bool] = False) -> Optional[List[Field]]:
+        """
+        OBJECT and INTERFACE only
+        """
         pass
+
+    @property
+    def type(self):
+        if is_union(self._type):
+            return self._type.__args__[0]
+        else:
+            return self._type
 
 
 @meta
 class Schema(Object):
     types: List[Type]
     mutation_type: Optional[Type]
-    subscription_type: Type
+    subscription_type: Optional[Type]
 
     @field
     def directives(self) -> List[Directive]:
@@ -109,7 +215,10 @@ class Schema(Object):
 
     @field
     def query_type(self) -> Type:
-        return []
+        schema = context.get().schema
+        type = Type()
+        type._type = schema.__fields__['query'].ftype
+        return type
 
 
 class Query(Object):
@@ -120,7 +229,7 @@ class Query(Object):
 
     @field
     def __schema(self) -> Schema:
-        pass
+        return Schema(types=[], mutation_type=[], subscription_type=None)
 
 
 class WithMetaSchema(BaseSchema):

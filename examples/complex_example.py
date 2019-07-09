@@ -2,6 +2,18 @@ import pygraphql
 from typing import Optional
 
 
+class Foo(pygraphql.Object):
+    a: str
+
+
+class Bar(pygraphql.Object):
+    b: int
+
+
+class FooBar(pygraphql.Union):
+    members = (Foo, Bar)
+
+
 class GeoInput(pygraphql.Input):
     lat: float
     lng: float
@@ -13,6 +25,10 @@ class GeoInput(pygraphql.Input):
 
 class Address(pygraphql.Object):
     latlng: str
+
+    @pygraphql.field
+    def foobar(self) -> FooBar:
+        return Foo(a='test')
 
 
 class Query(pygraphql.Object):
