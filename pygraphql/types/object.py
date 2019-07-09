@@ -7,8 +7,10 @@ from graphql.language.ast import (
 from pygraphql.utils import (
     patch_indents,
     to_snake_case,
+    is_union,
     is_list,
-    is_optional
+    is_optional,
+    shelling_type
 )
 from pygraphql.exceptions import RuntimeError, ValidationError
 from pygraphql import types
@@ -52,6 +54,10 @@ class ObjectType(InterfaceType):
                     print_type(gtype)
             if isinstance(field.ftype, ObjectType):
                 field.ftype.validate()
+            if is_union(field.ftype):
+                shelled = shelling_type(field.ftype)
+                if isinstance(shelled, ObjectType):
+                    shelled.validate()
 
 
 class Object(metaclass=ObjectType):

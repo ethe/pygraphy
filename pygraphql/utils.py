@@ -53,3 +53,9 @@ def to_snake_case(name):
 def meta(obj):
     obj.__name__ = '__' + obj.__name__
     return obj
+
+
+def shelling_type(type):
+    while is_union(type):
+        type = type.__args__[0]
+    return type
