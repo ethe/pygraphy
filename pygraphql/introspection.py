@@ -1,3 +1,5 @@
+import inspect
+import json
 from typing import List, Optional
 from .types import (
     Enum,
@@ -7,11 +9,17 @@ from .types import (
     context,
     Interface,
     Union,
-    Enum,
-    Input
+    Input,
+    ResolverField
 )
 from .types.base import print_type
-from .utils import meta, is_optional, is_list, is_union
+from .utils import (
+    meta,
+    is_optional,
+    is_list,
+    is_union,
+    to_camel_case
+)
 
 
 @meta
@@ -66,24 +74,73 @@ class EnumValue(Object):
 
 @meta
 class InputValue(Object):
-    name: str
-    description: Optional[str]
-    type: 'Type'
-    default_value: Optional[str]
+
+    @field
+    def name(self) -> str:
+        return to_camel_case(self._name)
+
+    @field
+    def description(self) -> Optional[str]:
+        """
+        Not support yet
+        """
+        return None
 
     @field
     def type(self) -> 'Type':
-        pass
+        t = Type()
+        t._type = self.param
+        return t
+
+    @field
+    def default_value(self) -> Optional[str]:
+        default = self._param.default
+        return json.dumps(default) if default != inspect._empty else None
 
 
 @meta
 class Field(Object):
-    name: str
-    description: Optional[str]
-    args: List[InputValue]
-    type: 'Type'
-    is_deprecated: bool
-    deprecation_reason: str
+
+    @field
+    def name(self) -> str:
+        return to_camel_case(self._field.name)
+
+    @field
+    def description(self) -> Optional[str]:
+        return self._field.description
+
+    @field
+    def args(self) -> List[InputValue]:
+        if not isinstance(self._field, ResolverField):
+            return []
+        args = []
+        for name, param in self._field.params.items():
+            value = InputValue()
+            value._name = name
+            value.param = param
+            value._param = self._field._params[name]
+            args.append(value)
+        return args
+
+    @field
+    def type(self) -> 'Type':
+        t = Type()
+        t._type = self._field.ftype
+        return t
+
+    @field
+    def is_deprecated(self) -> bool:
+        """
+        Not support yet
+        """
+        return False
+
+    @field
+    def deprecation_reason(self) -> Optional[str]:
+        """
+        Not support yet
+        """
+        return None
 
 
 @meta
@@ -91,15 +148,21 @@ class Type(Object):
 
     @field
     def name(self) -> Optional[str]:
-        return print_type(self._type, nonnull=False)
+        if not is_optional(self._type):
+            return None
+        else:
+            type = self._type.__args__[0]
+            if is_list(type):
+                return None
+            return print_type(type, nonnull=False)
 
     @field
     def kind(self) -> TypeKind:
         if not is_optional(self._type):
             return TypeKind.NON_NULL
-        if is_list(self._type):
-            return TypeKind.LIST
         type = self._type.__args__[0]
+        if is_list(self.type):
+            return TypeKind.LIST
         if issubclass(type, (str, int, float, bool)):
             return TypeKind.SCALAR
         elif issubclass(type, Object):
@@ -126,7 +189,7 @@ class Type(Object):
             return None
         if issubclass(self.type, Object):
             interfaces = []
-            for base in self.type.bases:
+            for base in self.type.__bases__:
                 if issubclass(base, Interface):
                     interfaces.append(base)
             return interfaces
@@ -154,10 +217,10 @@ class Type(Object):
             return None
         if issubclass(self.type, Input):
             values = []
-            for field in self.type.__fields__:
+            for tfield in self.type.__fields__:
                 values.append(InputValue(
-                    name=field.name,
-                    description=field.description,
+                    name=tfield.name,
+                    description=tfield.description,
                     default_value=None
                 ))
         return None
@@ -169,11 +232,12 @@ class Type(Object):
         """
         if not is_optional(self._type):
             of = Type()
-            of._type = self._type
+            of._type = Optional[self._type]
             return of
-        elif is_list(self._type):
+
+        if is_list(self._type.__args__[0]):
             of = Type()
-            of._type = self._type.__args__[0]
+            of._type = self._type.__args__[0].__args__[0]
             return of
         return None
 
@@ -186,14 +250,32 @@ class Type(Object):
             return None
         if issubclass(self.type, Enum):
             values = []
-            for attr in dir()
+            for attr in dir(self.type):
+                if attr.startswith('_'):
+                    continue
+                values.append(attr)
+            return [EnumValue(
+                name=i,
+                description=None,
+                is_deprecated=False,
+                deprecation_reason=None
+            ) for i in values]
 
     @field
     def fields(self, include_deprecated: Optional[bool] = False) -> Optional[List[Field]]:
         """
         OBJECT and INTERFACE only
         """
-        pass
+        if not is_optional(self._type) and is_list(self._type):
+            return None
+        if issubclass(self.type, Object) or issubclass(self.type, Interface):
+            fields = []
+            for n, f in self.type.__fields__.items():
+                field = Field()
+                field._field = f
+                fields.append(field)
+            return fields
+        return None
 
     @property
     def type(self):
@@ -205,9 +287,6 @@ class Type(Object):
 
 @meta
 class Schema(Object):
-    types: List[Type]
-    mutation_type: Optional[Type]
-    subscription_type: Optional[Type]
 
     @field
     def directives(self) -> List[Directive]:
@@ -215,10 +294,41 @@ class Schema(Object):
 
     @field
     def query_type(self) -> Type:
+        """
+        The type that query operations will be rooted at.
+        """
         schema = context.get().schema
         type = Type()
         type._type = schema.__fields__['query'].ftype
         return type
+
+    @field
+    def mutation_type(self) -> Optional[Type]:
+        """
+        If this server supports mutation, the type that mutation operations will be rooted at.
+        """
+        schema = context.get().schema
+        if 'mutation' not in schema.__fields__:
+            return None
+        type = Type()
+        type._type = schema.__fields__['mutation'].ftype
+        return type
+
+    @field
+    def subscription_type(self) -> Optional[Type]:
+        """
+        Not support yet
+        """
+        return None
+
+    @field
+    def types(self) -> List[Type]:
+        types = []
+        for t in context.get().schema.registered_type:
+            type = Type()
+            type._type = Optional[t]
+            types.append(type)
+        return types
 
 
 class Query(Object):
@@ -229,7 +339,7 @@ class Query(Object):
 
     @field
     def __schema(self) -> Schema:
-        return Schema(types=[], mutation_type=[], subscription_type=None)
+        return Schema()
 
 
 class WithMetaSchema(BaseSchema):

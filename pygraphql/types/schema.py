@@ -134,11 +134,8 @@ class Schema(metaclass=SchemaType):
                     traceback.print_exc()
                     error_collector.append(e)
                 context.reset(token)
-                if error_collector:
-                    return_root = {
-                        'errors': error_collector,
-                        'data': query_object
-                    }
-                else:
-                    return_root = query_object
+                return_root = {
+                    'errors': error_collector if error_collector else None,
+                    'data': query_object
+                }
                 return json.dumps(return_root, cls=GraphQLEncoder)

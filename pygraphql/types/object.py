@@ -1,4 +1,3 @@
-import inspect
 from copy import copy
 from graphql.language.ast import (
     FragmentSpreadNode,
@@ -79,39 +78,40 @@ class Object(metaclass=ObjectType):
 
             resolver = self.__get_resover__(name, node, field, path)
             if not resolver:
-                self.resolve_results[name] = getattr(self, snake_cases)
-                continue
+                try:
+                    result = getattr(self, snake_cases)
+                except AttributeError:
+                    raise RuntimeError(f'{name} is not a valid node of {self}', node, path)
+            else:
+                kwargs = self.__package_args__(node, field, path)
 
-            kwargs = self.__package_args__(node, field, path)
+                try:
+                    result = resolver(**kwargs)
+                except Exception as e:
+                    # TODO: Use logger to print stack
+                    import traceback
+                    traceback.print_exc()
+                    e.location = node.loc.source.get_location(node.loc.start)
+                    e.path = path
+                    error_collector.append(e)
+                    result = None
 
-            try:
-                result = resolver(**kwargs)
-            except Exception as e:
-                # TODO: Use logger to print stack
-                import traceback
-                traceback.print_exc()
-                e.location = node.loc.source.get_location(node.loc.start)
-                e.path = path
-                error_collector.append(e)
-                result = None
-
-            return_type = inspect.signature(resolver).return_annotation
+            return_type = field.ftype
             if not self.__check_return_type__(return_type, result):
                 if result is None and error_collector:
                     return None
                 raise RuntimeError(
                     f'{result} is not a valid return value to'
-                    f' {resolver.__name__}, please check {resolver.__name__}\'s type annotation',
+                    f' {name}, please check {name}\'s type annotation',
                     node,
                     path
                 )
 
-            # import ipdb; ipdb.set_trace()
             if isinstance(result, Object):
                 result.__resolve__(root_node, node.selection_set.selections, error_collector, path)
             elif hasattr(result, '__iter__'):
-                if isinstance(result[0], Object):
-                    for item in result:
+                for item in result:
+                    if isinstance(item, Object):
                         item.__resolve__(
                             root_node,
                             node.selection_set.selections,
@@ -158,7 +158,7 @@ class Object(metaclass=ObjectType):
             resolver = getattr(self, f'_{self.__class__.__name__}{snake_cases}', None)
         else:
             resolver = getattr(self, snake_cases, None)
-        if not resolver:
+        if not resolver or not resolver.__is_field__:
             raise RuntimeError(
                 f"Cannot query field '{name}' on type '{type(self)}'.",
                 node,
@@ -169,10 +169,10 @@ class Object(metaclass=ObjectType):
     def __package_args__(self, node, field, path):
         kwargs = {}
         for arg in node.arguments:
-            slot = field.params.get(arg.name.value)
+            slot = field.params.get(to_snake_case(arg.name.value))
             if not slot:
                 raise RuntimeError(
-                    f'Can not find {arg.value.name}'
+                    f'Can not find {arg.name.value}'
                     f' as param in {field.name}',
                     node,
                     path
@@ -189,6 +189,8 @@ class Object(metaclass=ObjectType):
                 return True
             return cls.__check_return_type__(return_type.__args__[0], result)
         elif is_list(return_type):
+            if len(result) == 0:
+                return True
             for item in result:
                 if not cls.__check_return_type__(return_type.__args__[0], item):
                     return False
