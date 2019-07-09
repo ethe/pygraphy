@@ -106,11 +106,18 @@ class Object(metaclass=ObjectType):
                     path
                 )
 
+            # import ipdb; ipdb.set_trace()
             if isinstance(result, Object):
                 result.__resolve__(root_node, node.selection_set.selections, error_collector, path)
-            elif hasattr(result, 'iter') and isinstance(return_type.__args__[0], ObjectType):
-                for item in result:
-                    item.__resolve__(root_node, node.selection_set.selections, error_collector, path)
+            elif hasattr(result, '__iter__'):
+                if isinstance(result[0], Object):
+                    for item in result:
+                        item.__resolve__(
+                            root_node,
+                            node.selection_set.selections,
+                            error_collector,
+                            path
+                        )
             self.resolve_results[name] = result
         return self
 
@@ -182,10 +189,13 @@ class Object(metaclass=ObjectType):
                 return True
             return cls.__check_return_type__(return_type.__args__[0], result)
         elif is_list(return_type):
-            return cls.__check_return_type__(return_type.__args__[0], result)
+            for item in result:
+                if not cls.__check_return_type__(return_type.__args__[0], item):
+                    return False
+                return True
         elif isinstance(return_type, types.UnionType):
             for member in return_type.members:
-                if isinstance(result, member):
+                if cls.__check_return_type__(member, result):
                     return True
         elif isinstance(result, return_type):
             return True

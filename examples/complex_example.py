@@ -1,5 +1,5 @@
 import pygraphql
-from typing import Optional
+from typing import Optional, List
 
 
 class Foo(pygraphql.Object):
@@ -27,8 +27,8 @@ class Address(pygraphql.Object):
     latlng: str
 
     @pygraphql.field
-    def foobar(self) -> FooBar:
-        return Foo(a='test')
+    def foobar(self) -> List[FooBar]:
+        return [Foo(a='test') for _ in range(5)]
 
 
 class Query(pygraphql.Object):

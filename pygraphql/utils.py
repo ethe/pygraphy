@@ -56,6 +56,6 @@ def meta(obj):
 
 
 def shelling_type(type):
-    while is_union(type):
+    while is_optional(type) or is_list(type):
         type = type.__args__[0]
     return type

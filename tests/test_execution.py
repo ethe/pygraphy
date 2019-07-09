@@ -55,7 +55,7 @@ def test_complex_mutation():
         }
     """
 
-    assert ComplexSchema.execute(mutation) == r'{"createAddress": {"latlng": "(32.2,12)", "foobar": {}}}'
+    assert ComplexSchema.execute(mutation) == r'{"createAddress": {"latlng": "(32.2,12)", "foobar": [{}, {}, {}, {}, {}]}}'
 
     mutation = """
         mutation addAddress{
@@ -70,7 +70,7 @@ def test_complex_mutation():
         }
     """
 
-    assert ComplexSchema.execute(mutation) == r'{"createAddress": {"latlng": "(32.2,12)", "foobar": {"a": "test"}}}'
+    assert ComplexSchema.execute(mutation) == r'{"createAddress": {"latlng": "(32.2,12)", "foobar": [{"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}]}}'
 
 
 def test_raise_error():
