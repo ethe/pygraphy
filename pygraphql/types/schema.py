@@ -1,4 +1,5 @@
 import json
+import asyncio
 import traceback
 import contextvars
 from graphql.language import parse
@@ -110,7 +111,7 @@ class Schema(metaclass=SchemaType):
     }
 
     @classmethod
-    def execute(cls, query):
+    async def execute(cls, query):
         document = parse(query)
         for definition in document.definitions:
             if not isinstance(definition, OperationDefinitionNode):
@@ -119,13 +120,13 @@ class Schema(metaclass=SchemaType):
                 OperationType.QUERY,
                 OperationType.MUTATION
             ):
-                query_object = cls.__fields__[
+                obj = cls.__fields__[
                     cls.FIELD_MAP[definition.operation]
                 ].ftype.__args__[0]()
                 error_collector = []
                 token = context.set(Context(schema=cls))
                 try:
-                    query_object = query_object.__resolve__(
+                    obj = await obj.__resolve__(
                         document.definitions,
                         definition.selection_set.selections,
                         error_collector
@@ -136,6 +137,6 @@ class Schema(metaclass=SchemaType):
                 context.reset(token)
                 return_root = {
                     'errors': error_collector if error_collector else None,
-                    'data': query_object
+                    'data': obj
                 }
                 return json.dumps(return_root, cls=GraphQLEncoder)

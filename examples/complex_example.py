@@ -31,7 +31,7 @@ class Address(pygraphql.Object):
         return [Foo(a='test') for _ in range(5)]
 
 
-class Query(pygraphql.Object):
+class Query(pygraphql.Query):
 
     @pygraphql.field
     def address(self, geo: GeoInput) -> Address:

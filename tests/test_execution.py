@@ -1,9 +1,13 @@
+import pytest
 from examples.starwars.schema import Schema as StarwarsSchema
 from examples.simple_example import Schema as SimpleSchema
 from examples.complex_example import Schema as ComplexSchema
 
 
-def test_starwars_query():
+pytestmark = pytest.mark.asyncio
+
+
+async def test_starwars_query():
     query = """
         query FetchLukeQuery {
           human(id: "1000") {
@@ -11,11 +15,11 @@ def test_starwars_query():
           }
         }
     """
-    assert StarwarsSchema.execute(query) == \
+    assert await StarwarsSchema.execute(query) == \
         r'{"errors": null, "data": {"human": {"name": "foo"}}}'
 
 
-def test_simple_query():
+async def test_simple_query():
     query = """
         query something{
           patron {
@@ -26,11 +30,11 @@ def test_simple_query():
         }
     """
 
-    assert SimpleSchema.execute(query) == \
+    assert await SimpleSchema.execute(query) == \
         r'{"errors": null, "data": {"patron": {"id": "1", "name": "Syrus", "age": 27}}}'
 
 
-def test_complex_query():
+async def test_complex_query():
     query = """
         query something{
           address(geo: {lat:32.2, lng:12}) {
@@ -39,11 +43,11 @@ def test_complex_query():
         }
     """
 
-    assert ComplexSchema.execute(query) == \
+    assert await ComplexSchema.execute(query) == \
         r'{"errors": null, "data": {"address": {"latlng": "(32.2,12)"}}}'
 
 
-def test_complex_mutation():
+async def test_complex_mutation():
     mutation = """
         mutation addAddress{
           createAddress(geo: {lat:32.2, lng:12}) {
@@ -57,7 +61,7 @@ def test_complex_mutation():
         }
     """
 
-    assert ComplexSchema.execute(mutation) == \
+    assert await ComplexSchema.execute(mutation) == \
         r'{"errors": null, "data": {"createAddress": {"latlng": "(32.2,12)", "foobar": [{}, {}, {}, {}, {}]}}}'
 
     mutation = """
@@ -73,16 +77,16 @@ def test_complex_mutation():
         }
     """
 
-    assert ComplexSchema.execute(mutation) == \
+    assert await ComplexSchema.execute(mutation) == \
         r'{"errors": null, "data": {"createAddress": {"latlng": "(32.2,12)", "foobar": [{"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}]}}}'
 
 
-def test_raise_error():
+async def test_raise_error():
     query = """
         query test {
             exception(content: "test")
         }
     """
 
-    assert SimpleSchema.execute(query) == \
+    assert await SimpleSchema.execute(query) == \
         '{"errors": [{"message": "test", "locations": [{"line": 3, "column": 13}], "path": ["exception"]}], "data": null}'

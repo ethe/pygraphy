@@ -1,3 +1,6 @@
+import asyncio
+import logging
+from inspect import isawaitable
 from copy import copy
 from graphql.language.ast import (
     FragmentSpreadNode,
@@ -61,14 +64,16 @@ class ObjectType(InterfaceType):
 
 class Object(metaclass=ObjectType):
 
-    def __resolve__(self, root_node, nodes, error_collector, path=[]):
+    async def __resolve__(self, root_node, nodes, error_collector, path=[]):
         self.resolve_results = {}
         for node in nodes:
             if hasattr(node, 'name'):
                 path = copy(path)
                 path.append(node.name.value)
 
-            returned = self.__resolve_fragment__(root_node, node, error_collector, path)
+            returned = await self.__resolve_fragment__(
+                root_node, node, error_collector, path
+            )
             if returned:
                 continue
 
@@ -81,23 +86,24 @@ class Object(metaclass=ObjectType):
                 try:
                     result = getattr(self, snake_cases)
                 except AttributeError:
-                    raise RuntimeError(f'{name} is not a valid node of {self}', node, path)
+                    raise RuntimeError(
+                        f'{name} is not a valid node of {self}', node, path
+                    )
             else:
                 kwargs = self.__package_args__(node, field, path)
 
                 try:
                     result = resolver(**kwargs)
+                    if isawaitable(result):
+                        result = await result
                 except Exception as e:
-                    # TODO: Use logger to print stack
-                    import traceback
-                    traceback.print_exc()
+                    logging.error(e, exc_info=True)
                     e.location = node.loc.source.get_location(node.loc.start)
                     e.path = path
                     error_collector.append(e)
                     result = None
 
-            return_type = field.ftype
-            if not self.__check_return_type__(return_type, result):
+            if not self.__check_return_type__(field.ftype, result):
                 if result is None and error_collector:
                     return None
                 raise RuntimeError(
@@ -107,24 +113,32 @@ class Object(metaclass=ObjectType):
                     path
                 )
 
-            if isinstance(result, Object):
-                result.__resolve__(root_node, node.selection_set.selections, error_collector, path)
-            elif hasattr(result, '__iter__'):
-                for item in result:
-                    if isinstance(item, Object):
-                        item.__resolve__(
-                            root_node,
-                            node.selection_set.selections,
-                            error_collector,
-                            path
-                        )
+            await self.__circular_resolve__(
+                result, root_node, node, error_collector, path
+            )
+
             self.resolve_results[name] = result
         return self
 
-    def __resolve_fragment__(self, root_node, node, error_collector, path):
+    async def __circular_resolve__(self, result, root_node, node, error_collector, path):
+        if isinstance(result, Object):
+            await result.__resolve__(
+                root_node, node.selection_set.selections, error_collector, path
+            )
+        elif hasattr(result, '__iter__'):
+            for item in result:
+                if isinstance(item, Object):
+                    await item.__resolve__(
+                        root_node,
+                        node.selection_set.selections,
+                        error_collector,
+                        path
+                    )
+
+    async def __resolve_fragment__(self, root_node, node, error_collector, path):
         if isinstance(node, InlineFragmentNode):
             if node.type_condition.name.value == self.__class__.__name__:
-                self.__resolve__(
+                await self.__resolve__(
                     root_node,
                     node.selection_set.selections,
                     error_collector
@@ -135,7 +149,7 @@ class Object(metaclass=ObjectType):
                 if node.name.value == subroot_node.name.value:
                     current_path = copy(path)
                     current_path.append(subroot_node.name.value)
-                    self.__resolve__(
+                    await self.__resolve__(
                         root_node,
                         subroot_node.selection_set.selections,
                         error_collector,
@@ -155,7 +169,9 @@ class Object(metaclass=ObjectType):
         if not isinstance(field, ResolverField):
             return None
         if '__' in snake_cases:
-            resolver = getattr(self, f'_{self.__class__.__name__}{snake_cases}', None)
+            resolver = getattr(
+                self, f'_{self.__class__.__name__}{snake_cases}', None
+            )
         else:
             resolver = getattr(self, snake_cases, None)
         if not resolver or not resolver.__is_field__:

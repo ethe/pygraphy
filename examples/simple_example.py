@@ -8,7 +8,7 @@ class Patron(pygraphql.Object):
     age: int
 
 
-class Query(pygraphql.Object):
+class Query(pygraphql.Query):
 
     @pygraphql.field
     def patron(self) -> Patron:

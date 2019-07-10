@@ -14,6 +14,10 @@ def get_playground_html(request_path: str) -> str:
 
 
 class View(HTTPEndpoint):
+
     async def get(self, request):
         html = get_playground_html(str(request.url))
         return PlainTextResponse(html)
+
+    async def post(self, request):
+        pass
