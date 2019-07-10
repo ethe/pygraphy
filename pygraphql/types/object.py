@@ -66,6 +66,7 @@ class Object(metaclass=ObjectType):
 
     async def __resolve__(self, root_node, nodes, error_collector, path=[]):
         self.resolve_results = {}
+        tasks = {}
         for node in nodes:
             if hasattr(node, 'name'):
                 path = copy(path)
@@ -84,7 +85,7 @@ class Object(metaclass=ObjectType):
             resolver = self.__get_resover__(name, node, field, path)
             if not resolver:
                 try:
-                    result = getattr(self, snake_cases)
+                    tasks[name] = (getattr(self, snake_cases), node, field, path)
                 except AttributeError:
                     raise RuntimeError(
                         f'{name} is not a valid node of {self}', node, path
@@ -93,15 +94,30 @@ class Object(metaclass=ObjectType):
                 kwargs = self.__package_args__(node, field, path)
 
                 try:
-                    result = resolver(**kwargs)
-                    if isawaitable(result):
-                        result = await result
+                    returned = resolver(**kwargs)
                 except Exception as e:
-                    logging.error(e, exc_info=True)
-                    e.location = node.loc.source.get_location(node.loc.start)
-                    e.path = path
-                    error_collector.append(e)
+                    self.__handle_error__(e, node, path, error_collector)
+                    tasks[name] = (None, node, field, path)
+                    continue
+
+                if isawaitable(returned):
+                    tasks[name] = (asyncio.ensure_future(returned), node, field, path)
+                else:
+                    tasks[name] = (returned, node, field, path)
+
+        return await self.__task_receiver__(tasks, root_node, error_collector)
+
+    async def __task_receiver__(self, tasks, root_node, error_collector):
+        for name, task in tasks.items():
+            task, node, field, path = task
+            if isawaitable(task):
+                try:
+                    result = await task
+                except Exception as e:
+                    self.__handle_error__(e, node, path, error_collector)
                     result = None
+            else:
+                result = task
 
             if not self.__check_return_type__(field.ftype, result):
                 if result is None and error_collector:
@@ -119,6 +135,13 @@ class Object(metaclass=ObjectType):
 
             self.resolve_results[name] = result
         return self
+
+    @staticmethod
+    def __handle_error__(e, node, path, error_collector):
+        logging.error(e, exc_info=True)
+        e.location = node.loc.source.get_location(node.loc.start)
+        e.path = path
+        error_collector.append(e)
 
     async def __circular_resolve__(self, result, root_node, node, error_collector, path):
         if isinstance(result, Object):

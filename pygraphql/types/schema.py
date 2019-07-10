@@ -16,7 +16,7 @@ from pygraphql.utils import (
 from pygraphql.encoder import GraphQLEncoder
 from pygraphql.exceptions import ValidationError
 from pygraphql.context import Context
-from .object import ObjectType
+from .object import ObjectType, Object
 from .field import Field, ResolverField
 from .union import UnionType
 from .input import InputType
@@ -103,7 +103,7 @@ class SchemaType(ObjectType):
 context: contextvars.ContextVar[Context] = contextvars.ContextVar('context')
 
 
-class Schema(metaclass=SchemaType):
+class Schema(Object, metaclass=SchemaType):
 
     FIELD_MAP = {
         OperationType.QUERY: 'query',
