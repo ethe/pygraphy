@@ -6,15 +6,15 @@ from graphql.language.ast import (
     OperationDefinitionNode,
     OperationType
 )
-from pygraphql.utils import (
+from pygraphy.utils import (
     is_union,
     is_list,
     is_optional,
     patch_indents
 )
-from pygraphql.encoder import GraphQLEncoder
-from pygraphql.exceptions import ValidationError
-from pygraphql.context import Context
+from pygraphy.encoder import GraphQLEncoder
+from pygraphy.exceptions import ValidationError
+from pygraphy.context import Context
 from .object import ObjectType, Object
 from .field import Field, ResolverField
 from .union import UnionType

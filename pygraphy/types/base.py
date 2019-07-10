@@ -8,14 +8,14 @@ from graphql.language.ast import (
     ListValueNode,
     ObjectValueNode
 )
-from pygraphql.utils import (
+from pygraphy.utils import (
     patch_indents,
     is_union,
     is_optional,
     is_list
 )
-from pygraphql.exceptions import ValidationError
-from pygraphql import types
+from pygraphy.exceptions import ValidationError
+from pygraphy import types
 
 
 class GraphQLType(type):

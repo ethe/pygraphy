@@ -1,6 +1,6 @@
 from typing import Optional, Union, Dict, List
 from inspect import _ParameterKind, Parameter
-from pygraphql.types import (
+from pygraphy.types import (
     Object,
     Enum,
     Union as GraphQLUnion,
@@ -9,8 +9,8 @@ from pygraphql.types import (
     Interface,
     field
 )
-from pygraphql.types.field import Field, ResolverField
-from pygraphql.exceptions import ValidationError
+from pygraphy.types.field import Field, ResolverField
+from pygraphy.exceptions import ValidationError
 
 
 def test_model_definition():

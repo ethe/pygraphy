@@ -11,14 +11,14 @@ from typing import (
     Union as PyUnion,
     List
 )
-from pygraphql.utils import (
+from pygraphy.utils import (
     patch_indents,
     is_union,
     is_list,
     to_camel_case,
     to_snake_case
 )
-from pygraphql.exceptions import ValidationError
+from pygraphy.exceptions import ValidationError
 from .base import print_type, GraphQLType
 
 

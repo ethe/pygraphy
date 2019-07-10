@@ -1,5 +1,5 @@
 import json
-from pygraphql import types
+from pygraphy import types
 
 
 class GraphQLEncoder(json.JSONEncoder):

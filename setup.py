@@ -7,7 +7,7 @@ from os.path import join, dirname
 
 from setuptools import setup, find_packages
 
-with open(join(dirname(__file__), 'pygraphql', '__init__.py'), 'r') as f:
+with open(join(dirname(__file__), 'pygraphy', '__init__.py'), 'r') as f:
     version = re.match(r".*__version__ = '(.*?)'", f.read(), re.S).group(1)
 
 install_requires = [
@@ -25,7 +25,7 @@ cmdclass = {}
 ext_modules = []
 
 
-setup(name="pygraphql",
+setup(name="pygraphy",
       version=version,
       description="Pythonic implementation of GraphQL",
       keywords="python graphql",
@@ -33,7 +33,7 @@ setup(name="pygraphql",
       author_email="zi-xing.guo@ubisoft.com",
       packages=find_packages(exclude=["tests", "test.*", "examples", "examples.*"]),
       include_package_data=True,
-      url="https://pygraphql.readthedocs.io/",
+      url="https://pygraphy.readthedocs.io/",
       license="MIT",
       install_requires=install_requires,
       tests_require=dev_requires,

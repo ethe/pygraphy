@@ -1,23 +1,23 @@
-import pygraphql
+import pygraphy
 from typing import Optional
 
 
-class Patron(pygraphql.Object):
+class Patron(pygraphy.Object):
     id: str
     name: str
     age: int
 
 
-class Query(pygraphql.Query):
+class Query(pygraphy.Query):
 
-    @pygraphql.field
+    @pygraphy.field
     def patron(self) -> Patron:
         return Patron(id='1', name='Syrus', age=27)
 
-    @pygraphql.field
+    @pygraphy.field
     def exception(self, content: str) -> str:
         raise RuntimeError(content)
 
 
-class Schema(pygraphql.Schema):
+class Schema(pygraphy.Schema):
     query: Optional[Query]

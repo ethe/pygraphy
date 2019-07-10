@@ -1,5 +1,5 @@
 import inspect
-from pygraphql.utils import (
+from pygraphy.utils import (
     to_snake_case,
     patch_indents
 )

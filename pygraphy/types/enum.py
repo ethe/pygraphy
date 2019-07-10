@@ -1,6 +1,6 @@
 import inspect
 from enum import EnumMeta, Enum as PyEnum
-from pygraphql.utils import patch_indents
+from pygraphy.utils import patch_indents
 
 
 class EnumType(EnumMeta):

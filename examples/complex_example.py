@@ -1,20 +1,20 @@
-import pygraphql
+import pygraphy
 from typing import Optional, List
 
 
-class Foo(pygraphql.Object):
+class Foo(pygraphy.Object):
     a: str
 
 
-class Bar(pygraphql.Object):
+class Bar(pygraphy.Object):
     b: int
 
 
-class FooBar(pygraphql.Union):
+class FooBar(pygraphy.Union):
     members = (Foo, Bar)
 
 
-class GeoInput(pygraphql.Input):
+class GeoInput(pygraphy.Input):
     lat: float
     lng: float
 
@@ -23,28 +23,28 @@ class GeoInput(pygraphql.Input):
         return "({},{})".format(self.lat, self.lng)
 
 
-class Address(pygraphql.Object):
+class Address(pygraphy.Object):
     latlng: str
 
-    @pygraphql.field
+    @pygraphy.field
     def foobar(self) -> List[FooBar]:
         return [Foo(a='test') for _ in range(5)]
 
 
-class Query(pygraphql.Query):
+class Query(pygraphy.Query):
 
-    @pygraphql.field
+    @pygraphy.field
     def address(self, geo: GeoInput) -> Address:
         return Address(latlng=geo.latlng)
 
 
-class Mutation(pygraphql.Object):
+class Mutation(pygraphy.Object):
 
-    @pygraphql.field
+    @pygraphy.field
     def create_address(self, geo: GeoInput) -> Address:
         return Address(latlng=geo.latlng)
 
 
-class Schema(pygraphql.Schema):
+class Schema(pygraphy.Schema):
     query: Optional[Query]
     mutation: Optional[Mutation]

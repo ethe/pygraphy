@@ -1,4 +1,4 @@
-import pygraphql
+import pygraphy
 from typing import List, Optional
 from starlette.applications import Starlette
 import uvicorn
@@ -7,13 +7,13 @@ import uvicorn
 app = Starlette(debug=True)
 
 
-class Episode(pygraphql.Enum):
+class Episode(pygraphy.Enum):
     NEWHOPE = 4
     EMPIRE = 5
     JEDI = 6
 
 
-class Character(pygraphql.Interface):
+class Character(pygraphy.Interface):
     """
     Character interface contains human and droid
     """
@@ -21,44 +21,44 @@ class Character(pygraphql.Interface):
     name: str
     appears_in: List[Episode]
 
-    @pygraphql.field
+    @pygraphy.field
     def friends(self) -> Optional[List['Character']]:
         return None
 
 
-class Human(pygraphql.Object, Character):
+class Human(pygraphy.Object, Character):
     """
     Human object
     """
     home_planet: str
 
 
-class Droid(pygraphql.Object, Character):
+class Droid(pygraphy.Object, Character):
     """
     Driod object
     """
     primary_function: str
 
 
-class Query(pygraphql.Query):
+class Query(pygraphy.Query):
 
-    @pygraphql.field
+    @pygraphy.field
     def hero(self, episode: Episode) -> Optional[Character]:
         return None
 
-    @pygraphql.field
+    @pygraphy.field
     def human(self, id: str = '1234') -> Optional[Human]:
         return Human(
             id=id, name='foo', appears_in=[Episode.NEWHOPE, Episode.EMPIRE], home_planet='Mars'
         )
 
-    @pygraphql.field
+    @pygraphy.field
     def droid(self, id: str) -> Optional[Droid]:
         return None
 
 
 @app.route('/')
-class Schema(pygraphql.Schema):
+class Schema(pygraphy.Schema):
     query: Optional[Query]
 
 

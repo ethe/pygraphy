@@ -1,5 +1,5 @@
-from pygraphql.exceptions import ValidationError
-from pygraphql.utils import patch_indents
+from pygraphy.exceptions import ValidationError
+from pygraphy.utils import patch_indents
 from .base import print_type, load_literal_value
 from .object import ObjectType
 from .field import Field, FieldableType

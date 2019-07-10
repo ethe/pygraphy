@@ -6,7 +6,7 @@ from graphql.language.ast import (
     FragmentSpreadNode,
     InlineFragmentNode
 )
-from pygraphql.utils import (
+from pygraphy.utils import (
     patch_indents,
     to_snake_case,
     is_union,
@@ -14,8 +14,8 @@ from pygraphql.utils import (
     is_optional,
     shelling_type
 )
-from pygraphql.exceptions import RuntimeError, ValidationError
-from pygraphql import types
+from pygraphy.exceptions import RuntimeError, ValidationError
+from pygraphy import types
 from .interface import InterfaceType
 from .field import Field, ResolverField
 from .base import print_type, load_literal_value

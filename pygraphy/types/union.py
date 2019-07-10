@@ -1,6 +1,6 @@
 import inspect
-from pygraphql.utils import patch_indents
-from pygraphql.exceptions import ValidationError
+from pygraphy.utils import patch_indents
+from pygraphy.exceptions import ValidationError
 from .base import GraphQLType
 from .object import ObjectType
 

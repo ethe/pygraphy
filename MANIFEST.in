@@ -1,1 +1,2 @@
-include pygraphql/static/*
+include README.md LICENSE
+include pygraphy/static/*

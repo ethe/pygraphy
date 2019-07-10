@@ -1,5 +1,5 @@
 import typing
-from pygraphql.utils import patch_indents, is_union, is_optional, is_list
+from pygraphy.utils import patch_indents, is_union, is_optional, is_list
 
 
 def test_patch_indents():

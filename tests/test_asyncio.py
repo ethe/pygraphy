@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-import pygraphql
+import pygraphy
 from typing import Optional
 
 
@@ -8,9 +8,9 @@ pytestmark = pytest.mark.asyncio
 global_var = False
 
 
-class Query(pygraphql.Query):
+class Query(pygraphy.Query):
 
-    @pygraphql.field
+    @pygraphy.field
     async def foo(self) -> bool:
         global global_var
         result = global_var
@@ -18,7 +18,7 @@ class Query(pygraphql.Query):
         global_var = True
         return result
 
-    @pygraphql.field
+    @pygraphy.field
     async def bar(self) -> bool:
         global global_var
         result = global_var
@@ -27,7 +27,7 @@ class Query(pygraphql.Query):
         return result
 
 
-class Schema(pygraphql.Schema):
+class Schema(pygraphy.Schema):
     query: Optional[Query]
 
 
