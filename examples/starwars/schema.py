@@ -1,5 +1,10 @@
 import pygraphql
 from typing import List, Optional
+from starlette.applications import Starlette
+import uvicorn
+
+
+app = Starlette(debug=True)
 
 
 class Episode(pygraphql.Enum):
@@ -52,5 +57,10 @@ class Query(pygraphql.Query):
         return None
 
 
+@app.route('/')
 class Schema(pygraphql.Schema):
     query: Optional[Query]
+
+
+if __name__ == '__main__':
+    uvicorn.run(app, host='0.0.0.0', port=8000)

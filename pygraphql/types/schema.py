@@ -1,5 +1,4 @@
 import json
-import asyncio
 import traceback
 import contextvars
 from graphql.language import parse
@@ -21,6 +20,7 @@ from .field import Field, ResolverField
 from .union import UnionType
 from .input import InputType
 from .interface import InterfaceType
+from .enum import EnumType
 
 
 class SchemaType(ObjectType):
@@ -28,11 +28,17 @@ class SchemaType(ObjectType):
 
     def __new__(cls, name, bases, attrs):
         attrs['registered_type'] = []
+        without_dataclass = type.__new__(cls, name, bases, attrs)
+
         cls = super().__new__(cls, name, bases, attrs)
         cls.validated_type = []
         cls.validate()
         cls.register_fields_type(cls.__fields__.values())
-        return cls
+
+        # Schema does not need dataclass
+        without_dataclass.__fields__ = cls.__fields__
+        without_dataclass.__description__ = cls.__description__
+        return without_dataclass
 
     def register_fields_type(cls, fields):
         param_return_types = []
@@ -63,6 +69,8 @@ class SchemaType(ObjectType):
                 cls.registered_type.append(ptype)
                 cls.register_fields_type(ptype.__fields__.values())
                 cls.register_types(ptype.__subclasses__())
+            elif isinstance(ptype, EnumType):
+                cls.registered_type.append(ptype)
             else:
                 # Other basic types, do not need be handled
                 pass

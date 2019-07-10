@@ -177,7 +177,7 @@ class Type(Object):
 
     @field
     def description(self) -> Optional[str]:
-        return self.type.__description__
+        return self.type.__description__ if hasattr(self.type, '__description__') else self.type.__doc__
 
     @field
     def interfaces(self) -> Optional[List['Type']]:
@@ -191,7 +191,7 @@ class Type(Object):
             for base in self.type.__bases__:
                 if issubclass(base, Interface):
                     t = Type()
-                    t._type = base
+                    t._type = Optional[base]
                     interfaces.append(t)
             return interfaces
         return None
@@ -234,6 +234,7 @@ class Type(Object):
                     description=tfield.description,
                     default_value=None
                 ))
+            return values
         return None
 
     @field

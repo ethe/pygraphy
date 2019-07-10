@@ -90,6 +90,7 @@ def load_literal_value(node, ptype):
                 f'{node.value.value} is not a valid member of {type}',
                 node
             )
+        return value
     elif isinstance(node.value, ObjectValueNode):
         return ptype.__resolve__(node.value)
     raise RuntimeError(f'Can not convert {node.value.value}', node)
