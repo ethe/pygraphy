@@ -11,7 +11,8 @@ with open(join(dirname(__file__), 'pygraphql', '__init__.py'), 'r') as f:
     version = re.match(r".*__version__ = '(.*?)'", f.read(), re.S).group(1)
 
 install_requires = [
-    "GraphQL-core-next>=1.0.5,<1.1.0",
+    "starlette>=0.12.1,<0.13.0",
+    "GraphQL-core-next>=1.0.5,<1.1.0"
 ]
 
 dev_requires = [
@@ -36,7 +37,7 @@ setup(name="pygraphql",
       license="MIT",
       install_requires=install_requires,
       tests_require=dev_requires,
-      python_requires='>=3.4',
+      python_requires='>=3.7',
       extras_require={
           "dev": dev_requires
       },
