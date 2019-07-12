@@ -147,4 +147,5 @@ class Schema(Object, metaclass=SchemaType):
                     'errors': error_collector if error_collector else None,
                     'data': obj
                 }
-                return json.dumps(return_root, cls=GraphQLEncoder)
+                success = True if not error_collector else False
+                return json.dumps(return_root, cls=GraphQLEncoder), success

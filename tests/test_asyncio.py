@@ -40,4 +40,4 @@ async def test_asyncio():
     """
 
     # Obviously, foo and bar both return False
-    assert await Schema.execute(query) == r'{"errors": null, "data": {"foo": false, "bar": false}}'
+    assert await Schema.execute(query) == (r'{"errors": null, "data": {"foo": false, "bar": false}}', True)

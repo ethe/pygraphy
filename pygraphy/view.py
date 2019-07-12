@@ -46,10 +46,10 @@ class Schema(HTTPEndpoint, WithMetaSchema):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        result = await self.execute(query, request=request)
-
+        result, success = await self.execute(query, request=request)
+        status_code = status.HTTP_200_OK if success else status.HTTP_400_BAD_REQUEST
         return Response(
             result,
-            status_code=status.HTTP_200_OK,
+            status_code=status_code,
             media_type='application/json'
         )

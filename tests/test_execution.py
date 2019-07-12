@@ -16,7 +16,7 @@ async def test_starwars_query():
         }
     """
     assert await StarwarsSchema.execute(query) == \
-        r'{"errors": null, "data": {"human": {"name": "foo"}}}'
+        (r'{"errors": null, "data": {"human": {"name": "foo"}}}', True)
 
 
 async def test_simple_query():
@@ -31,7 +31,7 @@ async def test_simple_query():
     """
 
     assert await SimpleSchema.execute(query) == \
-        r'{"errors": null, "data": {"patron": {"id": "1", "name": "Syrus", "age": 27}}}'
+        (r'{"errors": null, "data": {"patron": {"id": "1", "name": "Syrus", "age": 27}}}', True)
 
 
 async def test_complex_query():
@@ -44,7 +44,7 @@ async def test_complex_query():
     """
 
     assert await ComplexSchema.execute(query) == \
-        r'{"errors": null, "data": {"address": {"latlng": "(32.2,12)"}}}'
+        (r'{"errors": null, "data": {"address": {"latlng": "(32.2,12)"}}}', True)
 
 
 async def test_complex_mutation():
@@ -62,7 +62,7 @@ async def test_complex_mutation():
     """
 
     assert await ComplexSchema.execute(mutation) == \
-        r'{"errors": null, "data": {"createAddress": {"latlng": "(32.2,12)", "foobar": [{}, {}, {}, {}, {}]}}}'
+        (r'{"errors": null, "data": {"createAddress": {"latlng": "(32.2,12)", "foobar": [{}, {}, {}, {}, {}]}}}', True)
 
     mutation = """
         mutation addAddress{
@@ -78,7 +78,7 @@ async def test_complex_mutation():
     """
 
     assert await ComplexSchema.execute(mutation) == \
-        r'{"errors": null, "data": {"createAddress": {"latlng": "(32.2,12)", "foobar": [{"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}]}}}'
+        (r'{"errors": null, "data": {"createAddress": {"latlng": "(32.2,12)", "foobar": [{"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}]}}}', True)
 
 
 async def test_raise_error():
@@ -89,4 +89,4 @@ async def test_raise_error():
     """
 
     assert await SimpleSchema.execute(query) == \
-        '{"errors": [{"message": "test", "locations": [{"line": 3, "column": 13}], "path": ["exception"]}], "data": null}'
+        ('{"errors": [{"message": "test", "locations": [{"line": 3, "column": 13}], "path": ["exception"]}], "data": null}', False)
