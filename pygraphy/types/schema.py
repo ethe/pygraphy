@@ -119,7 +119,7 @@ class Schema(Object, metaclass=SchemaType):
     }
 
     @classmethod
-    async def execute(cls, query):
+    async def execute(cls, query, request=None):
         document = parse(query)
         for definition in document.definitions:
             if not isinstance(definition, OperationDefinitionNode):
@@ -132,7 +132,7 @@ class Schema(Object, metaclass=SchemaType):
                     cls.FIELD_MAP[definition.operation]
                 ].ftype.__args__[0]()
                 error_collector = []
-                token = context.set(Context(schema=cls))
+                token = context.set(Context(schema=cls, request=request))
                 try:
                     obj = await obj.__resolve__(
                         document.definitions,
