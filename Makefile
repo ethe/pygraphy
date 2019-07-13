@@ -1,5 +1,6 @@
 clean:
 	rm -vf dist/*
+	rm -rvf build/*
 
 build: clean
 	python setup.py bdist_wheel

@@ -21,34 +21,36 @@ dev_requires = [
 ] + install_requires
 
 
-setup(name="pygraphy",
-      version=version,
-      description="Modern pythonic implementation of GraphQL",
-      long_description=open("README.md").read(),
-      long_description_content_type="text/markdown",
-      keywords="python graphql",
-      author="Tzu-hsing Gwo",
-      author_email="zi-xing.guo@ubisoft.com",
-      packages=['pygraphy'],
-      url="https://github.com/ethe/pygraphy",
-      license="MIT",
-      install_requires=install_requires,
-      tests_require=dev_requires,
-      python_requires=">=3.7,<4",
-      include_package_data=True,
-      package_data={
-          '': ['*.html']
-      },
-      extras_require={
-          "dev": dev_requires
-      },
-      classifiers=[
-          "Topic :: Software Development",
-          "Development Status :: 1 - Planning",
-          "Intended Audience :: Developers",
-          "License :: OSI Approved :: MIT License",
-          "Programming Language :: Python :: 3",
-          "Programming Language :: Python :: 3.7",
-          "Programming Language :: Python :: Implementation :: CPython",
-          "Programming Language :: Python :: Implementation :: PyPy",
-      ])
+setup(
+    name="pygraphy",
+    version=version,
+    description="A modern pythonic implementation of GraphQL.",
+    long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
+    keywords="python graphql",
+    author="Tzu-sing Gwo",
+    author_email="zi-xing.guo@ubisoft.com",
+    url="https://github.com/ethe/pygraphy",
+    license="MIT",
+    packages=['pygraphy'],
+    include_package_data=True,
+    package_data={
+        '': ['*.html']
+    },
+    install_requires=install_requires,
+    tests_require=dev_requires,
+    python_requires=">=3.7,<4",
+    extras_require={
+      "dev": dev_requires
+    },
+    classifiers=[
+      "Topic :: Software Development",
+      "Development Status :: 1 - Planning",
+      "Intended Audience :: Developers",
+      "License :: OSI Approved :: MIT License",
+      "Programming Language :: Python :: 3",
+      "Programming Language :: Python :: 3.7",
+      "Programming Language :: Python :: Implementation :: CPython",
+      "Programming Language :: Python :: Implementation :: PyPy",
+    ]
+)
