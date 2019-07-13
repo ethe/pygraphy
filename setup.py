@@ -5,7 +5,7 @@ import re
 
 from os.path import join, dirname
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 with open(join(dirname(__file__), 'pygraphy', '__init__.py'), 'r') as f:
     version = re.match(r".*__version__ = '(.*?)'", f.read(), re.S).group(1)
@@ -18,26 +18,27 @@ install_requires = [
 dev_requires = [
     "flake8>=3.7.7",
     "pytest>=5.0.0",
-]
-
-
-cmdclass = {}
-ext_modules = []
+] + install_requires
 
 
 setup(name="pygraphy",
       version=version,
-      description="Pythonic implementation of GraphQL",
+      description="Modern pythonic implementation of GraphQL",
+      long_description=open("README.md").read(),
+      long_description_content_type="text/markdown",
       keywords="python graphql",
       author="Tzu-hsing Gwo",
       author_email="zi-xing.guo@ubisoft.com",
-      packages=find_packages(exclude=["tests", "test.*", "examples", "examples.*"]),
-      include_package_data=True,
-      url="https://pygraphy.readthedocs.io/",
+      packages=['pygraphy'],
+      url="https://github.com/ethe/pygraphy",
       license="MIT",
       install_requires=install_requires,
       tests_require=dev_requires,
-      python_requires='>=3.7',
+      python_requires=">=3.7,<4",
+      include_package_data=True,
+      package_data={
+          '': ['*.html']
+      },
       extras_require={
           "dev": dev_requires
       },
