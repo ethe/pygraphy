@@ -40,13 +40,14 @@ class Schema(HTTPEndpoint, WithMetaSchema):
 
         try:
             query = data["query"]
+            variables = data.get("variables")
         except KeyError:
             return PlainTextResponse(
                 "No GraphQL query found in the request",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        result, success = await self.execute(query, request=request)
+        result, success = await self.execute(query, variables=variables, request=request)
         status_code = status.HTTP_200_OK if success else status.HTTP_400_BAD_REQUEST
         return Response(
             result,

@@ -90,3 +90,16 @@ async def test_raise_error():
 
     assert await SimpleSchema.execute(query) == \
         ('{"errors": [{"message": "test", "locations": [{"line": 3, "column": 13}], "path": ["exception"]}], "data": null}', False)
+
+
+async def test_variables():
+    query = """
+        query something($geo: GeoInput) {
+          address(geo: $geo) {
+            latlng
+          }
+        }
+    """
+
+    assert await ComplexSchema.execute(query, variables={"geo": r"{lat:32.2, lng:12}"}) == \
+        (r'{"errors": null, "data": {"address": {"latlng": "(32.2,12)"}}}', True)

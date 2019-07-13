@@ -46,5 +46,5 @@ class Input(metaclass=InputType):
     def __resolve__(cls, node):
         data = {}
         for field in node.fields:
-            data[field.name.value] = load_literal_value(field, cls)
+            data[field.name.value] = load_literal_value(field.value, cls)
         return cls(**data)

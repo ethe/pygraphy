@@ -1,6 +1,7 @@
 import typing
 import dataclasses
-from typing import Any, Optional
+from typing import Any, Optional, Mapping, List
+from graphql.language.ast import OperationDefinitionNode
 
 
 if typing.TYPE_CHECKING:
@@ -10,4 +11,6 @@ if typing.TYPE_CHECKING:
 @dataclasses.dataclass
 class Context:
     schema: 'Schema'
+    root_ast: List[OperationDefinitionNode]
     request: Optional[Any] = None
+    variables: Optional[Mapping[str, Any]] = None

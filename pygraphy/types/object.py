@@ -64,7 +64,7 @@ class ObjectType(InterfaceType):
 
 class Object(metaclass=ObjectType):
 
-    async def __resolve__(self, root_node, nodes, error_collector, path=[]):
+    async def __resolve__(self, nodes, error_collector, path=[]):
         self.resolve_results = {}
         tasks = {}
         for node in nodes:
@@ -73,7 +73,7 @@ class Object(metaclass=ObjectType):
                 path.append(node.name.value)
 
             returned = await self.__resolve_fragment__(
-                root_node, node, error_collector, path
+                node, error_collector, path
             )
             if returned:
                 continue
@@ -105,9 +105,9 @@ class Object(metaclass=ObjectType):
                 else:
                     tasks[name] = (returned, node, field, path)
 
-        return await self.__task_receiver__(tasks, root_node, error_collector)
+        return await self.__task_receiver__(tasks, error_collector)
 
-    async def __task_receiver__(self, tasks, root_node, error_collector):
+    async def __task_receiver__(self, tasks, error_collector):
         for name, task in tasks.items():
             task, node, field, path = task
             if isawaitable(task):
@@ -130,7 +130,7 @@ class Object(metaclass=ObjectType):
                 )
 
             await self.__circular_resolve__(
-                result, root_node, node, error_collector, path
+                result, node, error_collector, path
             )
 
             self.resolve_results[name] = result
@@ -143,37 +143,35 @@ class Object(metaclass=ObjectType):
         e.path = path
         error_collector.append(e)
 
-    async def __circular_resolve__(self, result, root_node, node, error_collector, path):
+    async def __circular_resolve__(self, result, node, error_collector, path):
         if isinstance(result, Object):
             await result.__resolve__(
-                root_node, node.selection_set.selections, error_collector, path
+                node.selection_set.selections, error_collector, path
             )
         elif hasattr(result, '__iter__'):
             for item in result:
                 if isinstance(item, Object):
                     await item.__resolve__(
-                        root_node,
                         node.selection_set.selections,
                         error_collector,
                         path
                     )
 
-    async def __resolve_fragment__(self, root_node, node, error_collector, path):
+    async def __resolve_fragment__(self, node, error_collector, path):
         if isinstance(node, InlineFragmentNode):
             if node.type_condition.name.value == self.__class__.__name__:
                 await self.__resolve__(
-                    root_node,
                     node.selection_set.selections,
                     error_collector
                 )
             return True
         elif isinstance(node, FragmentSpreadNode):
+            root_node = types.context.get().root_ast
             for subroot_node in root_node:
                 if node.name.value == subroot_node.name.value:
                     current_path = copy(path)
                     current_path.append(subroot_node.name.value)
                     await self.__resolve__(
-                        root_node,
                         subroot_node.selection_set.selections,
                         error_collector,
                         current_path
@@ -217,7 +215,7 @@ class Object(metaclass=ObjectType):
                     path
                 )
             kwargs[to_snake_case(arg.name.value)] = load_literal_value(
-                arg, slot
+                arg.value, slot
             )
         return kwargs
 

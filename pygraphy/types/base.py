@@ -1,3 +1,4 @@
+from graphql.language import parse_value
 from graphql.language.ast import (
     IntValueNode,
     FloatValueNode,
@@ -6,7 +7,8 @@ from graphql.language.ast import (
     NullValueNode,
     EnumValueNode,
     ListValueNode,
-    ObjectValueNode
+    ObjectValueNode,
+    VariableNode,
 )
 from pygraphy.utils import (
     patch_indents,
@@ -71,26 +73,33 @@ def print_type(gtype, nonnull=True, except_types=()):
 
 
 def load_literal_value(node, ptype):
-    if isinstance(node.value, IntValueNode):
-        return int(node.value.value)
-    elif isinstance(node.value, FloatValueNode):
-        return float(node.value.value)
-    elif isinstance(node.value, BooleanValueNode):
-        return bool(node.value.value)
-    elif isinstance(node.value, StringValueNode):
-        return node.value.value
-    elif isinstance(node.value, NullValueNode):
+    if isinstance(node, IntValueNode):
+        return int(node.value)
+    elif isinstance(node, FloatValueNode):
+        return float(node.value)
+    elif isinstance(node, BooleanValueNode):
+        return bool(node.value)
+    elif isinstance(node, StringValueNode):
+        return node.value
+    elif isinstance(node, NullValueNode):
         return None
-    elif isinstance(node.value, ListValueNode):
-        return [load_literal_value(v) for v in node.value.values]
-    elif isinstance(node.value, EnumValueNode):
-        value = getattr(ptype, node.value.value)
+    elif isinstance(node, ListValueNode):
+        return [load_literal_value(v.value) for v in node.values]
+    elif isinstance(node, EnumValueNode):
+        value = getattr(ptype, node.value)
         if not value:
             raise RuntimeError(
-                f'{node.value.value} is not a valid member of {type}',
+                f'{node.value} is not a valid member of {type}',
                 node
             )
         return value
-    elif isinstance(node.value, ObjectValueNode):
-        return ptype.__resolve__(node.value)
-    raise RuntimeError(f'Can not convert {node.value.value}', node)
+    elif isinstance(node, ObjectValueNode):
+        return ptype.__resolve__(node)
+    elif isinstance(node, VariableNode):
+        name = node.name.value
+        variables = types.context.get().variables
+        if name not in variables:
+            raise RuntimeError(f'Can not find variable {name}')
+        node = parse_value(variables[name])
+        return load_literal_value(node, ptype)
+    raise RuntimeError(f'Can not convert {node.value}', node)
