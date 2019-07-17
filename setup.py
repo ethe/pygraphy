@@ -34,9 +34,6 @@ setup(
     license="MIT",
     packages=['pygraphy'],
     include_package_data=True,
-    package_data={
-        '': ['*.html']
-    },
     install_requires=install_requires,
     tests_require=dev_requires,
     python_requires=">=3.7,<4",
