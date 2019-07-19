@@ -76,7 +76,11 @@ if __name__ == '__main__':
 
 ## Installation
 
-`pip install pygraphy`
+### Web Server Required
+`pip install 'pygraphy[web]'`
+
+### Standalone Model and Query Handler
+`pip install 'pygraphy'`
 
 
 ## Feature

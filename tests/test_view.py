@@ -1,11 +1,11 @@
 import json
 import pytest
 from starlette.testclient import TestClient
-from examples.starwars.schema import app
 
 
 @pytest.fixture()
 def client():
+    from examples.starwars.schema import app
     return TestClient(app)
 
 

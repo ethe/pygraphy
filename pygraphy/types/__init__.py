@@ -3,7 +3,7 @@ from .enum import Enum, EnumType
 from .input import Input, InputType
 from .interface import Interface, InterfaceType
 from .object import Object, ObjectType
-from .schema import Schema, SchemaType, context
+from .schema import Schema, SchemaType, context, Socket, SubscribableSchema
 from .field import field, Field, ResolverField
 
 
@@ -23,5 +23,7 @@ __all__ = [
     'EnumType',
     'Field',
     'ResolverField',
-    'context'
+    'context',
+    'Socket',
+    'SubscribableSchema'
 ]

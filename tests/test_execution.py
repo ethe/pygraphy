@@ -15,8 +15,8 @@ async def test_starwars_query():
           }
         }
     """
-    assert await StarwarsSchema.execute(query) == \
-        (r'{"errors": null, "data": {"human": {"name": "foo"}}}', True)
+    assert await StarwarsSchema.execute(query, serialize=True) == \
+        r'{"errors": null, "data": {"human": {"name": "foo"}}}'
 
 
 async def test_simple_query():
@@ -30,8 +30,8 @@ async def test_simple_query():
         }
     """
 
-    assert await SimpleSchema.execute(query) == \
-        (r'{"errors": null, "data": {"patron": {"id": "1", "name": "Syrus", "age": 27}}}', True)
+    assert await SimpleSchema.execute(query, serialize=True) == \
+        r'{"errors": null, "data": {"patron": {"id": "1", "name": "Syrus", "age": 27}}}'
 
 
 async def test_complex_query():
@@ -43,8 +43,8 @@ async def test_complex_query():
         }
     """
 
-    assert await ComplexSchema.execute(query) == \
-        (r'{"errors": null, "data": {"address": {"latlng": "(32.2,12)"}}}', True)
+    assert await ComplexSchema.execute(query, serialize=True) == \
+        r'{"errors": null, "data": {"address": {"latlng": "(32.2,12)"}}}'
 
 
 async def test_complex_mutation():
@@ -61,8 +61,8 @@ async def test_complex_mutation():
         }
     """
 
-    assert await ComplexSchema.execute(mutation) == \
-        (r'{"errors": null, "data": {"createAddress": {"latlng": "(32.2,12)", "foobar": [{}, {}, {}, {}, {}]}}}', True)
+    assert await ComplexSchema.execute(mutation, serialize=True) == \
+        r'{"errors": null, "data": {"createAddress": {"latlng": "(32.2,12)", "foobar": [{}, {}, {}, {}, {}]}}}'
 
     mutation = """
         mutation addAddress{
@@ -77,8 +77,8 @@ async def test_complex_mutation():
         }
     """
 
-    assert await ComplexSchema.execute(mutation) == \
-        (r'{"errors": null, "data": {"createAddress": {"latlng": "(32.2,12)", "foobar": [{"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}]}}}', True)
+    assert await ComplexSchema.execute(mutation, serialize=True) == \
+        r'{"errors": null, "data": {"createAddress": {"latlng": "(32.2,12)", "foobar": [{"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}, {"a": "test"}]}}}'
 
 
 async def test_raise_error():
@@ -88,8 +88,8 @@ async def test_raise_error():
         }
     """
 
-    assert await SimpleSchema.execute(query) == \
-        ('{"errors": [{"message": "test", "locations": [{"line": 3, "column": 13}], "path": ["exception"]}], "data": null}', False)
+    assert await SimpleSchema.execute(query, serialize=True) == \
+        '{"errors": [{"message": "test", "locations": [{"line": 3, "column": 13}], "path": ["exception"]}], "data": null}'
 
 
 async def test_variables():
@@ -101,5 +101,5 @@ async def test_variables():
         }
     """
 
-    assert await ComplexSchema.execute(query, variables={"geo": r"{lat:32.2, lng:12}"}) == \
-        (r'{"errors": null, "data": {"address": {"latlng": "(32.2,12)"}}}', True)
+    assert await ComplexSchema.execute(query, serialize=True, variables={"geo": r"{lat:32.2, lng:12}"}) == \
+        r'{"errors": null, "data": {"address": {"latlng": "(32.2,12)"}}}'

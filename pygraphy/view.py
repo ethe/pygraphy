@@ -1,8 +1,13 @@
+import json
 import pathlib
+import dataclasses
 from starlette import status
-from starlette.endpoints import HTTPEndpoint
+from starlette.websockets import WebSocket
+from starlette.endpoints import HTTPEndpoint, WebSocketEndpoint
 from starlette.responses import PlainTextResponse, HTMLResponse, Response
-from .introspection import WithMetaSchema
+from .introspection import WithMetaSchema, WithMetaSubSchema
+from .encoder import GraphQLEncoder
+from .types.schema import Socket
 
 
 def get_playground_html(request_path: str) -> str:
@@ -47,10 +52,36 @@ class Schema(HTTPEndpoint, WithMetaSchema):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        result, success = await self.execute(query, variables=variables, request=request)
-        status_code = status.HTTP_200_OK if success else status.HTTP_400_BAD_REQUEST
+        result = await self.execute(
+            query, variables=variables, request=request
+        )
+        status_code = status.HTTP_200_OK if not result['errors'] else status.HTTP_400_BAD_REQUEST
         return Response(
-            result,
+            json.dumps(result, cls=GraphQLEncoder),
             status_code=status_code,
             media_type='application/json'
         )
+
+
+@dataclasses.dataclass
+class StarletteSocket(Socket):
+    websocket: WebSocket
+
+    async def send(self, text):
+        return await self.websocket.send_text(text)
+
+    async def receive(self):
+        return await self.websocket.receive_text()
+
+
+class SubscribableSchema(WebSocketEndpoint, WithMetaSubSchema):
+
+    async def on_connect(self, websocket):
+        await websocket.accept()
+        socket = StarletteSocket(websocket)
+        try:
+            await self.execute(
+                socket
+            )
+        finally:
+            await websocket.close()

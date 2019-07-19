@@ -6,6 +6,7 @@ from .types import (
     Object,
     field,
     Schema as BaseSchema,
+    SubscribableSchema as BaseSubscribableSchema,
     context,
     Interface,
     Union,
@@ -355,4 +356,8 @@ class Query(Object):
 
 
 class WithMetaSchema(BaseSchema):
+    query: Optional[Query]
+
+
+class WithMetaSubSchema(BaseSubscribableSchema):
     query: Optional[Query]

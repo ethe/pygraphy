@@ -108,7 +108,7 @@ async def test_introspection():
       }
     }"""
 
-    result, _ = await Schema.execute(query)
+    result = await Schema.execute(query, serialize=True)
     path = '/'.join(os.path.abspath(__file__).split('/')[:-1])
     with open(f'{path}/introspection_result', 'r') as f:
         assert result == f.read()[:-1]

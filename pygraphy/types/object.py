@@ -14,8 +14,8 @@ from pygraphy.utils import (
     is_optional,
     shelling_type
 )
-from pygraphy.exceptions import RuntimeError, ValidationError
 from pygraphy import types
+from pygraphy.exceptions import RuntimeError, ValidationError
 from .interface import InterfaceType
 from .field import Field, ResolverField
 from .base import print_type, load_literal_value
@@ -63,6 +63,65 @@ class ObjectType(InterfaceType):
 
 
 class Object(metaclass=ObjectType):
+
+    def __iter__(self):
+        for name, value in self.resolve_results.items():
+            if isinstance(value, Object):
+                value = dict(value)
+            elif isinstance(value, list):
+                serialized_value = []
+                for i in value:
+                    if isinstance(i, Object):
+                        serialized_value.append(dict(i))
+                    else:
+                        serialized_value.append(i)
+                value = serialized_value
+            yield (name, value)
+
+    async def __resolve_generator__(self, nodes, error_collector, path=[]):
+        self.resolve_results = {}
+        tasks = {}
+        for node in nodes:
+            if hasattr(node, 'name'):
+                path = copy(path)
+                path.append(node.name.value)
+
+            name = node.name.value
+            snake_cases = to_snake_case(name)
+            field = self.__fields__.get(snake_cases)
+
+            resolver = self.__get_resover__(name, node, field, path)
+            if not resolver:
+                try:
+                    tasks[name] = (getattr(self, snake_cases), node, field, path)
+                except AttributeError:
+                    raise RuntimeError(
+                        f'{name} is not a valid node of {self}', node, path
+                    )
+            else:
+                kwargs = self.__package_args__(node, field, path)
+
+                try:
+                    async for result in resolver(**kwargs):
+                        if not self.__check_return_type__(field.ftype, result):
+                            if result is None and error_collector:
+                                yield None
+                            raise RuntimeError(
+                                f'{result} is not a valid return value to'
+                                f' {name}, please check {name}\'s type annotation',
+                                node,
+                                path
+                            )
+
+                        await self.__circular_resolve__(
+                            result, node, error_collector, path
+                        )
+                        yield result
+                    return
+                except Exception as e:
+                    self.__handle_error__(e, node, path, error_collector)
+                    yield self
+                    return
 
     async def __resolve__(self, nodes, error_collector, path=[]):
         self.resolve_results = {}

@@ -11,14 +11,13 @@ with open(join(dirname(__file__), 'pygraphy', '__init__.py'), 'r') as f:
     version = re.match(r".*__version__ = '(.*?)'", f.read(), re.S).group(1)
 
 install_requires = [
-    "starlette>=0.12.1,<0.13.0",
     "GraphQL-core-next>=1.0.5,<1.1.0"
 ]
 
 dev_requires = [
     "flake8>=3.7.7",
     "pytest>=5.0.0",
-] + install_requires
+]
 
 
 setup(
@@ -38,7 +37,8 @@ setup(
     tests_require=dev_requires,
     python_requires=">=3.7,<4",
     extras_require={
-      "dev": dev_requires
+      "dev": dev_requires,
+      "web": ["starlette>=0.12.1,<0.13.0"]
     },
     classifiers=[
       "Topic :: Software Development",

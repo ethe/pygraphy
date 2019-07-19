@@ -1,3 +1,4 @@
+import asyncio
 import pygraphy
 from typing import List, Optional
 from starlette.applications import Starlette
@@ -60,6 +61,30 @@ class Query(pygraphy.Query):
 @app.route('/')
 class Schema(pygraphy.Schema):
     query: Optional[Query]
+
+
+class Beat(pygraphy.Object):
+    beat: int
+
+    @pygraphy.field
+    def foo(self, arg: int) -> int:
+        return arg * self.beat
+
+
+class Subscription(pygraphy.Object):
+
+    @pygraphy.field
+    async def beat(self) -> Beat:
+        start = 0
+        for _ in range(10):
+            await asyncio.sleep(1)
+            yield Beat(beat=start)
+            start += 1
+
+
+@app.websocket_route('/ws')
+class SubSchema(pygraphy.SubscribableSchema):
+    subscription: Optional[Subscription]
 
 
 if __name__ == '__main__':

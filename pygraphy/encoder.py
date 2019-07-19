@@ -5,9 +5,7 @@ from pygraphy import types
 class GraphQLEncoder(json.JSONEncoder):
 
     def default(self, obj):
-        if isinstance(obj, types.Object):
-            return obj.resolve_results
-        elif issubclass(type(obj), types.Enum):
+        if issubclass(type(obj), types.Enum):
             return str(obj).split('.')[-1]
         elif isinstance(obj, Exception):
             return {
