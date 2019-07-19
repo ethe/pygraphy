@@ -56,7 +56,7 @@ class ObjectType(InterfaceType):
             if isinstance(field, ResolverField):
                 for gtype in field.params.values():
                     print_type(gtype)
-                    shelled = shelling_type(field.ftype)
+                    shelled = shelling_type(gtype)
                     if isinstance(shelled, types.InputType):
                         shelled.validate()
             if isinstance(field.ftype, ObjectType):
