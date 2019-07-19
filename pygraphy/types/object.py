@@ -50,10 +50,15 @@ class ObjectType(InterfaceType):
         for _, field in cls.__fields__.items():
             if not isinstance(field, (Field, ResolverField)):
                 raise ValidationError(f'{field} is an invalid field type')
+
             print_type(field.ftype, except_types=(types.InputType))
+
             if isinstance(field, ResolverField):
                 for gtype in field.params.values():
                     print_type(gtype)
+                    shelled = shelling_type(field.ftype)
+                    if isinstance(shelled, types.InputType):
+                        shelled.validate()
             if isinstance(field.ftype, ObjectType):
                 field.ftype.validate()
             if is_union(field.ftype):
