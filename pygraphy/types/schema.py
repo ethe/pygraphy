@@ -205,6 +205,10 @@ class Socket(ABC):
     async def receive(self) -> str:
         pass
 
+    @abstractmethod
+    async def close(self):
+        pass
+
 
 T = TypeVar("T", bound=Socket)
 
@@ -222,7 +226,11 @@ class SubscribableSchema(Schema):
         socket: T,
     ):
         while True:
-            message = await socket.receive()
+            try:
+                message = await socket.receive()
+            except Exception:
+                await socket.close()
+                return
             try:
                 data = json.loads(message)
                 query, variables = data['query'], data['variables']

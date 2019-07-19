@@ -73,6 +73,15 @@ class StarletteSocket(Socket):
     async def receive(self):
         return await self.websocket.receive_text()
 
+    async def close(self):
+        # We have handled close event in schema executor, so reset it
+        from starlette.websockets import WebSocketState
+        self.websocket.client_state = WebSocketState.CONNECTED
+
+        async def fake_receiver():
+            return {"type": "websocket.disconnect"}
+        self.websocket._receive = fake_receiver
+
 
 class SubscribableSchema(WebSocketEndpoint, WithMetaSubSchema):
 
