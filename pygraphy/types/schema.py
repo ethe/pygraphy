@@ -39,9 +39,14 @@ class SchemaType(ObjectType):
 
         for parent in cls.__mro__:
             if hasattr(parent, "__fields__"):
-                cls.__fields__.update(parent.__fields__)
+                for key, field in parent.__fields__.items():
+                    if key not in cls.__fields__:
+                        cls.__fields__[key] = field
             if hasattr(parent, "registered_type"):
-                cls.registered_type.extend(parent.registered_type)
+                existing_type_name = [t.__name__ for t in cls.registered_type]
+                for ptype in parent.registered_type:
+                    if ptype.__name__ not in existing_type_name:
+                        cls.registered_type.append(ptype)
 
         # Schema does not need dataclass
         without_dataclass.__fields__ = cls.__fields__

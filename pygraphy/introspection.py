@@ -151,10 +151,9 @@ class Type(Object):
     def name(self) -> Optional[str]:
         if not is_optional(self._type):
             return None
-        else:
-            if is_list(self.type):
-                return None
-            return print_type(self.type, nonnull=False)
+        if is_list(self.type):
+            return None
+        return print_type(self.type, nonnull=False)
 
     @field
     def kind(self) -> TypeKind:
