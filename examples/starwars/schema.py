@@ -77,7 +77,7 @@ class Subscription(pygraphy.Object):
     async def beat(self) -> Beat:
         start = 0
         for _ in range(10):
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.1)
             yield Beat(beat=start)
             start += 1
 
