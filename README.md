@@ -5,6 +5,11 @@ A modern pythonic GraphQL implementation, painless GraphQL developing experience
 [![codecov](https://codecov.io/gh/ethe/pygraphy/branch/master/graph/badge.svg)](https://codecov.io/gh/ethe/pygraphy)
 
 
+## Document
+
+See [official docs](https://pygraphy.org/).
+
+
 ## Quick Review
 All the behaviors of Pygraphy are no difference from your intuition.
 ```python

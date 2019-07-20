@@ -11,4 +11,7 @@ pre_release: build
 release: build
 	twine upload dist/*
 
+doc:
+	mkdocs build
+
 .PHONY: release
