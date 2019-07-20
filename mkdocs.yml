@@ -1,0 +1,22 @@
+site_name: Pygraphy
+site_description: A modern pythonic GraphQL implementation, painless GraphQL developing experience for Pythonista.
+
+theme:
+    name: 'material'
+
+repo_name: ethe/pygraphy
+repo_url: https://github.com/ethe/pygraphy
+edit_uri: ""
+
+nav:
+    - Introduction: 'index.md'
+    - Schema Declaration: 'declaration.md'
+    - Query Executor: 'executor.md'
+    - Built-in Web Integration: 'app.md'
+    - Introspection and Playground: 'introspection.md'
+    - Context: 'context.md'
+    - Subscription: 'subscription.md'
+
+markdown_extensions:
+  - markdown.extensions.codehilite:
+      guess_lang: false

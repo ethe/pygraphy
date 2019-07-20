@@ -36,7 +36,7 @@ class Human(pygraphy.Object, Character):
 
 class Droid(pygraphy.Object, Character):
     """
-    Driod object
+    Droid object
     """
     primary_function: str
 
