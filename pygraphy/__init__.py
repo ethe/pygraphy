@@ -1,16 +1,16 @@
 from .types import Interface, Object, Union, Enum, Input, field, context
 from .introspection import Query
-# try:
-import starlette  # noqa
-from .view import Schema, SubscribableSchema
-# except ImportError:
-#     from .introspection import (
-#         WithMetaSchema as Schema,
-#         WithMetaSubSchema as SubscribableSchema
-#     )
+try:
+    import starlette  # noqa
+    from .view import Schema, SubscribableSchema
+except ImportError:
+    from .introspection import (
+        WithMetaSchema as Schema,
+        WithMetaSubSchema as SubscribableSchema
+    )
 
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 __all__ = [
     'Interface',
     'Object',
