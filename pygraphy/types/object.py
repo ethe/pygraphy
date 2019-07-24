@@ -127,25 +127,11 @@ class Object(metaclass=ObjectType):
         return self.__task_receiver__(tasks, error_collector)
 
     async def __task_receiver__(self, tasks, error_collector):
+        generators = []
         for name, task in tasks.items():
             task, node, field, path = task
             if hasattr(task, '__aiter__'):
-                generator = task
-                async for result in generator:
-                    if not self.__check_return_type__(field.ftype, result):
-                        if result is None and error_collector:
-                            yield None
-                        raise RuntimeError(
-                            f'{result} is not a valid return value to'
-                            f' {name}, please check {name}\'s type annotation',
-                            node,
-                            path
-                        )
-                    await self.__circular_resolve__(
-                        result, node, error_collector, path
-                    )
-                    self.resolve_results[name] = result
-                    yield self
+                generators.append(task)
             else:
                 if isawaitable(task):
                     try:
@@ -155,22 +141,33 @@ class Object(metaclass=ObjectType):
                         result = None
                 else:
                     result = task
-
-                if not self.__check_return_type__(field.ftype, result):
-                    if result is None and error_collector:
-                        yield None
-                    raise RuntimeError(
-                        f'{result} is not a valid return value to'
-                        f' {name}, please check {name}\'s type annotation',
-                        node,
-                        path
-                    )
-
-                await self.__circular_resolve__(
-                    result, node, error_collector, path
-                )
-
                 self.resolve_results[name] = result
+
+        for generator in generators:
+            async for result in generator:
+                self.resolve_results[name] = result
+
+                yield await self.__check_and_circular_resolve__(tasks, error_collector)
+        if not generators:
+            yield await self.__check_and_circular_resolve__(tasks, error_collector)
+
+    async def __check_and_circular_resolve__(self, tasks, error_collector):
+        for name, task in tasks.items():
+            task, node, field, path = task
+            result = self.resolve_results[name]
+            if not self.__check_return_type__(field.ftype, result):
+                if result is None and error_collector:
+                    return False
+                raise RuntimeError(
+                    f'{result} is not a valid return value to'
+                    f' {name}, please check {name}\'s type annotation',
+                    node,
+                    path
+                )
+            await self.__circular_resolve__(
+                result, node, error_collector, path
+            )
+        return self
 
     @staticmethod
     def __handle_error__(e, node, path, error_collector):
@@ -266,6 +263,8 @@ class Object(metaclass=ObjectType):
                 return True
             return cls.__check_return_type__(return_type.__args__[0], result)
         elif is_list(return_type):
+            if not isinstance(result, list):
+                return False
             if len(result) == 0:
                 return True
             for item in result:

@@ -152,13 +152,13 @@ class Schema(Object, metaclass=SchemaType):
                     'data': None
                 }
                 break
-            operation_result = await cls._execute_operation(
+            async for operation_result in cls._execute_operation(
                 document,
                 definition,
                 variables,
                 request
-            ).asend(None)
-            break
+            ):
+                pass
 
         if serialize:
             return json.dumps(operation_result, cls=GraphQLEncoder)
