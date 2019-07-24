@@ -24,7 +24,7 @@ def test_subscription(client):
         start = 0
         for i in range(10):
             data = websocket.receive_json()
-            assert data == {'data': {'beat': start, 'foo': start * 2}, 'errors': None}
+            assert data == {'data': {'beat': {'beat': start, 'foo': start * 2}}, 'errors': None}
             start += 1
 
 

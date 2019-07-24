@@ -83,51 +83,6 @@ class Object(metaclass=ObjectType):
                 value = serialized_value
             yield (name, value)
 
-    async def __resolve_generator__(self, nodes, error_collector, path=[]):
-        self.resolve_results = {}
-        tasks = {}
-        for node in nodes:
-            if hasattr(node, 'name'):
-                path = copy(path)
-                path.append(node.name.value)
-
-            name = node.name.value
-            snake_cases = to_snake_case(name)
-            field = self.__fields__.get(snake_cases)
-
-            resolver = self.__get_resover__(name, node, field, path)
-            if not resolver:
-                try:
-                    tasks[name] = (getattr(self, snake_cases), node, field, path)
-                except AttributeError:
-                    raise RuntimeError(
-                        f'{name} is not a valid node of {self}', node, path
-                    )
-            else:
-                kwargs = self.__package_args__(node, field, path)
-
-                try:
-                    async for result in resolver(**kwargs):
-                        if not self.__check_return_type__(field.ftype, result):
-                            if result is None and error_collector:
-                                yield None
-                            raise RuntimeError(
-                                f'{result} is not a valid return value to'
-                                f' {name}, please check {name}\'s type annotation',
-                                node,
-                                path
-                            )
-
-                        await self.__circular_resolve__(
-                            result, node, error_collector, path
-                        )
-                        yield result
-                    return
-                except Exception as e:
-                    self.__handle_error__(e, node, path, error_collector)
-                    yield self
-                    return
-
     async def __resolve__(self, nodes, error_collector, path=[]):
         self.resolve_results = {}
         tasks = {}
@@ -169,36 +124,53 @@ class Object(metaclass=ObjectType):
                 else:
                     tasks[name] = (returned, node, field, path)
 
-        return await self.__task_receiver__(tasks, error_collector)
+        return self.__task_receiver__(tasks, error_collector)
 
     async def __task_receiver__(self, tasks, error_collector):
         for name, task in tasks.items():
             task, node, field, path = task
-            if isawaitable(task):
-                try:
-                    result = await task
-                except Exception as e:
-                    self.__handle_error__(e, node, path, error_collector)
-                    result = None
+            if hasattr(task, '__aiter__'):
+                generator = task
+                async for result in generator:
+                    if not self.__check_return_type__(field.ftype, result):
+                        if result is None and error_collector:
+                            yield None
+                        raise RuntimeError(
+                            f'{result} is not a valid return value to'
+                            f' {name}, please check {name}\'s type annotation',
+                            node,
+                            path
+                        )
+                    await self.__circular_resolve__(
+                        result, node, error_collector, path
+                    )
+                    self.resolve_results[name] = result
+                    yield self
             else:
-                result = task
+                if isawaitable(task):
+                    try:
+                        result = await task
+                    except Exception as e:
+                        self.__handle_error__(e, node, path, error_collector)
+                        result = None
+                else:
+                    result = task
 
-            if not self.__check_return_type__(field.ftype, result):
-                if result is None and error_collector:
-                    return None
-                raise RuntimeError(
-                    f'{result} is not a valid return value to'
-                    f' {name}, please check {name}\'s type annotation',
-                    node,
-                    path
+                if not self.__check_return_type__(field.ftype, result):
+                    if result is None and error_collector:
+                        yield None
+                    raise RuntimeError(
+                        f'{result} is not a valid return value to'
+                        f' {name}, please check {name}\'s type annotation',
+                        node,
+                        path
+                    )
+
+                await self.__circular_resolve__(
+                    result, node, error_collector, path
                 )
 
-            await self.__circular_resolve__(
-                result, node, error_collector, path
-            )
-
-            self.resolve_results[name] = result
-        return self
+                self.resolve_results[name] = result
 
     @staticmethod
     def __handle_error__(e, node, path, error_collector):
@@ -209,25 +181,28 @@ class Object(metaclass=ObjectType):
 
     async def __circular_resolve__(self, result, node, error_collector, path):
         if isinstance(result, Object):
-            await result.__resolve__(
+            async for obj in await result.__resolve__(
                 node.selection_set.selections, error_collector, path
-            )
+            ):
+                pass
         elif hasattr(result, '__iter__'):
             for item in result:
                 if isinstance(item, Object):
-                    await item.__resolve__(
+                    async for _ in await item.__resolve__(
                         node.selection_set.selections,
                         error_collector,
                         path
-                    )
+                    ):
+                        pass
 
     async def __resolve_fragment__(self, node, error_collector, path):
         if isinstance(node, InlineFragmentNode):
             if node.type_condition.name.value == self.__class__.__name__:
-                await self.__resolve__(
+                async for _ in await self.__resolve__(
                     node.selection_set.selections,
                     error_collector
-                )
+                ):
+                    pass
             return True
         elif isinstance(node, FragmentSpreadNode):
             root_node = types.context.get().root_ast
@@ -235,11 +210,12 @@ class Object(metaclass=ObjectType):
                 if node.name.value == subroot_node.name.value:
                     current_path = copy(path)
                     current_path.append(subroot_node.name.value)
-                    await self.__resolve__(
+                    async for _ in await self.__resolve__(
                         subroot_node.selection_set.selections,
                         error_collector,
                         current_path
-                    )
+                    ):
+                        pass
             return True
         return False
 

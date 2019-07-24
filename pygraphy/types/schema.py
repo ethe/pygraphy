@@ -157,7 +157,7 @@ class Schema(Object, metaclass=SchemaType):
                 definition,
                 variables,
                 request
-            )
+            ).asend(None)
             break
 
         if serialize:
@@ -180,19 +180,29 @@ class Schema(Object, metaclass=SchemaType):
             )
         )
         try:
-            obj = await obj.__resolve__(
+            async for obj in await obj.__resolve__(
                 definition.selection_set.selections,
                 error_collector
-            )
+            ):
+                return_root = {
+                    'errors': error_collector if error_collector else None,
+                    'data': dict(obj) if obj else None
+                }
+                yield return_root
         except Exception as e:
             logging.error(e, exc_info=True)
             error_collector.append(e)
+            return_root = {
+                'errors': error_collector if error_collector else None,
+                'data': dict(obj) if obj else None
+            }
+            yield return_root
         context.reset(token)
         return_root = {
             'errors': error_collector if error_collector else None,
             'data': dict(obj) if obj else None
         }
-        return return_root
+        yield return_root
 
 
 class Socket(ABC):
@@ -236,91 +246,37 @@ class SubscribableSchema(Schema):
                 query, variables = data['query'], data['variables']
             except Exception as e:
                 logging.error(e, exc_info=True)
-                operation_result = {
-                    'errors': {
-                        'message': e
-                    },
-                    'data': None
-                }
-                await socket.send(
-                    json.dumps(operation_result, cls=GraphQLEncoder)
-                )
+                await cls.send_error(socket, e)
                 continue
 
             document = parse(query)
-            operation_result = {
-                'errors': None,
-                'data': None
-            }
             for definition in document.definitions:
                 if not isinstance(definition, OperationDefinitionNode):
                     continue
 
                 if cls.OPERATION_MAP[definition.operation] not in cls.__fields__:
-                    operation_result = {
-                        'errors': {
-                            'message': 'This API does not support this operation'
-                        },
-                        'data': None
-                    }
-                    await socket.send(
-                        json.dumps(operation_result, cls=GraphQLEncoder)
-                    )
+                    await cls.send_error(socket, 'This API does not support this operation')
                     break
 
-                if definition.operation == OperationType.SUBSCRIPTION:
-                    async for operation_result in cls._execute_subscription(
-                        document,
-                        definition,
-                        variables,
-                        socket
-                    ):
-                        try:
-                            await socket.send(
-                                json.dumps(operation_result, cls=GraphQLEncoder)
-                            )
-                        except Exception as e:
-                            logging.error(e, exc_info=True)
-                            break
-                    return
-                else:
-                    operation_result = await cls._execute_operation(
-                        document, definition, variables, socket
-                    )
+                async for operation_result in cls._execute_operation(
+                    document, definition, variables, socket
+                ):
                     try:
                         await socket.send(
                             json.dumps(operation_result, cls=GraphQLEncoder)
                         )
                     except Exception as e:
                         logging.error(e, exc_info=True)
-                    break
+                break
 
-    @classmethod
-    async def _execute_subscription(cls, document, definition, variables, socket):
-        obj = cls.__fields__[
-            cls.OPERATION_MAP[definition.operation]
-        ].ftype.__args__[0]()
-        error_collector = []
-        token = context.set(
-            Context(
-                schema=cls,
-                root_ast=document.definitions,
-                request=socket,
-                variables=variables,
-            )
+    @staticmethod
+    async def send_error(socket, e):
+        operation_result = {
+            'errors': {
+                'message': e
+            },
+            'data': None
+        }
+        await socket.send(
+            json.dumps(operation_result, cls=GraphQLEncoder)
         )
-        async for execute_result in obj.__resolve_generator__(
-            definition.selection_set.selections,
-            error_collector
-        ):
-            if hasattr(execute_result, '__iter__'):
-                execute_result = dict(execute_result)
-            return_root = {
-                'errors': error_collector if error_collector else None,
-                'data': execute_result
-            }
-            yield return_root
-            if error_collector:
-                context.reset(token)
-                return
-        context.reset(token)
