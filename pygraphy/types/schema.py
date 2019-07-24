@@ -192,17 +192,13 @@ class Schema(Object, metaclass=SchemaType):
         except Exception as e:
             logging.error(e, exc_info=True)
             error_collector.append(e)
+        finally:
+            context.reset(token)
             return_root = {
                 'errors': error_collector if error_collector else None,
                 'data': dict(obj) if obj else None
             }
             yield return_root
-        context.reset(token)
-        return_root = {
-            'errors': error_collector if error_collector else None,
-            'data': dict(obj) if obj else None
-        }
-        yield return_root
 
 
 class Socket(ABC):
