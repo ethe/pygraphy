@@ -79,6 +79,7 @@ if __name__ == '__main__':
 
 ```
 
+
 ## Installation
 
 ### Web Server Required
@@ -90,114 +91,30 @@ if __name__ == '__main__':
 
 ## Feature
 
-### Dataclass Model
-
-Inspired by [Strawberry](https://github.com/strawberry-graphql/strawberry), Pygraphy uses dataclass to define the model.
-```python
-class Patron(pygraphy.Object):
-    id: str
-    name: str
-    age: int
-
-
-class Query(pygraphy.Query):
-    """
-    Query doc also can be printed
-    """
-
-    @pygraphy.field
-    def patron(self) -> Patron:
-        """
-        Return the patron
-        """
-        return Patron(id='1', name='Gwo', age=25)
-
-    @pygraphy.field
-    def exception(self, content: str) -> str:
-        raise RuntimeError(content)
-
-print(Query)  # Have a try!
-'''
-"""
-Query doc also can be printed
-"""
-type Query {
-  __schema: __Schema!
-  __type(
-    name: String!
-  ): __Type
-  exception(
-    content: String!
-  ): String!
-  "Return the patron"
-  patron: Patron!
-}
-'''
-```
-
-### Asyncio Support
-
-Pygraphy supports async/await; executions of queries are asynchronous. Also, it implements the Starlette endpoint as a built-in Web interface, and users can use a full set of Python native solutions of concurrency.
-```python
-import asyncio
-
-
-class Query(pygraphy.Query):
-
-    @pygraphy.field
-    async def foo(self) -> bool:
-        """
-        Sample of asyncio
-        """
-        await asyncio.sleep(0.1)
-        return True
-
-    @pygraphy.field
-    async def bar(self) -> bool:
-        """
-        Run concurrent with foo
-        """
-        await asyncio.sleep(0.1)
-        return True
-
-```
-
-### Context Management
-
-Pygraphy uses [ContextVars](https://docs.python.org/3/library/contextvars.html#module-contextvars) to manage the context of queries, it is easier to use than pass context everywhere.
-```python
-from pygraphy import context
-
-
-class Schema(Object):
-
-    @field
-    def query_type(self):
-        """
-        The type that query operations will be rooted at.
-        """
-        schema = context.get().schema
-        query_type = schema.__fields__['query'].ftype
-        # Do whatever you want
-```
-
-### Introspection and Playground
-
-Pygraphy implements the [GraphQL introspection specification](https://graphql.github.io/graphql-spec/June2018/#sec-Introspection) and it also development by itself, see [pygraphy/introspection.py](pygraphy/introspection.py) and get more informations.
-
-[GraphQL Playground](https://github.com/prisma/graphql-playground) is also integrated into Pygraphy, run the Starlette server, and use browser request the API you defined, make API testing easier.
+- Clean room Pythonic schema definition system
+- Model definition bases on Python dataclass
+- Python Asyncio support
+- Context management bases on Python Context Variables
+- Introspection and GraphQL Playground support
 
 
 ## Comparation with GraphQL-Core(-Next)
 
 ### Advantages
-[GraphQL-Core-Next](https://github.com/graphql-python/graphql-core-next) is the official supporting implementation of GraphQL, and it is only a basic library. Generally, you would use Graphene or other wrapper libraries bases on it. Pygraphy is an integrated library that includes data mapping and model definition.
 
-GraphQL-Core-Next is directly translated from GraphQL.js, this leads to some weird behaviors such as [graphql-core-next/issues/37](https://github.com/graphql-python/graphql-core-next/issues/37#issuecomment-503499643), and it is too tough to make a wrapper for walking around. Pygraphy is another implementation wrote in a more pythonic way, it is friendlier to developers.
+[GraphQL-Core-Next](https://github.com/graphql-python/graphql-core-next) is the official supporting implementation of GraphQL, and it is only a basic library. Generally, you should use Graphene or other wrapper libraries bases on it. Pygraphy is an integrated library that includes data mapping and model definition.
+
+GraphQL-Core-Next is directly translated from GraphQL.js, this leads to some weird behaviors such as [graphql-core-next/issues/37](https://github.com/graphql-python/graphql-core-next/issues/37#issuecomment-511633135), and it is too tough to make a wrapper for walking around. Pygraphy rewrites the schema definition system in a more pythonic way. By using Python Metaclass, Pygraphy supports class-style schema definition naturally. There is no more inharmony between lambda function resolver (ugly Js style) and instance method resolver.
+
+By using Context Variables which is added into Python in version 3.7, Pygraphy does not need to pass context through the call chain like graphql-core-next.
+
+Also, Pygraphy is faster than graphql-core-next, you can check benchmark results as below.
+
+And more, Pygraphy clearly support stateful subscription method whith Python Asynchronous Generators, which is not elaborate in graphql-core-next.
 
 ### Disadvantages
 
-Pygraphy is still in pre-alpha version, buggy and need stable, welcome feedback.
+Pygraphy is still in pre-alpha version, and need stable, welcome feedback.
 
 Pygraphy **does not support** full features of GraphQL according to Spec right now, the rest part of Spec will be integrated literally in the future, it contains
   - Derectives
