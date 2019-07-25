@@ -83,7 +83,7 @@ class Object(metaclass=ObjectType):
                 value = serialized_value
             yield (name, value)
 
-    async def __resolve__(self, nodes, error_collector, path=[]):
+    async def _resolve(self, nodes, error_collector, path=[]):
         self.resolve_results = {}
         tasks = {}
         for node in nodes:
@@ -91,7 +91,7 @@ class Object(metaclass=ObjectType):
                 path = copy(path)
                 path.append(node.name.value)
 
-            returned = await self.__resolve_fragment__(
+            returned = await self.__resolve_fragment(
                 node, error_collector, path
             )
             if returned:
@@ -101,7 +101,7 @@ class Object(metaclass=ObjectType):
             snake_cases = to_snake_case(name)
             field = self.__fields__.get(snake_cases)
 
-            resolver = self.__get_resover__(name, node, field, path)
+            resolver = self.__get_resover(name, node, field, path)
             if not resolver:
                 try:
                     tasks[name] = (getattr(self, snake_cases), node, field, path)
@@ -110,12 +110,12 @@ class Object(metaclass=ObjectType):
                         f'{name} is not a valid node of {self}', node, path
                     )
             else:
-                kwargs = self.__package_args__(node, field, path)
+                kwargs = self.__package_args(node, field, path)
 
                 try:
                     returned = resolver(**kwargs)
                 except Exception as e:
-                    self.__handle_error__(e, node, path, error_collector)
+                    self.__handle_error(e, node, path, error_collector)
                     tasks[name] = (None, node, field, path)
                     continue
 
@@ -124,9 +124,15 @@ class Object(metaclass=ObjectType):
                 else:
                     tasks[name] = (returned, node, field, path)
 
-        return self.__task_receiver__(tasks, error_collector)
+        return self.__task_receiver(tasks, error_collector)
 
-    async def __task_receiver__(self, tasks, error_collector):
+    @staticmethod
+    def __get_field_name(name, node):
+        if node.alias:
+            return node.alias.value
+        return name
+
+    async def __task_receiver(self, tasks, error_collector):
         generators = []
         for name, task in tasks.items():
             task, node, field, path = task
@@ -141,21 +147,21 @@ class Object(metaclass=ObjectType):
                         result = None
                 else:
                     result = task
-                self.resolve_results[name] = result
+                self.resolve_results[self.__get_field_name(name, node)] = result
 
         for generator in generators:
             async for result in generator:
-                self.resolve_results[name] = result
+                self.resolve_results[self.__get_field_name(name, node)] = result
+                yield await self.__check_and_circular_resolve(tasks, error_collector)
 
-                yield await self.__check_and_circular_resolve__(tasks, error_collector)
         if not generators:
-            yield await self.__check_and_circular_resolve__(tasks, error_collector)
+            yield await self.__check_and_circular_resolve(tasks, error_collector)
 
-    async def __check_and_circular_resolve__(self, tasks, error_collector):
+    async def __check_and_circular_resolve(self, tasks, error_collector):
         for name, task in tasks.items():
             task, node, field, path = task
-            result = self.resolve_results[name]
-            if not self.__check_return_type__(field.ftype, result):
+            result = self.resolve_results[self.__get_field_name(name, node)]
+            if not self.__check_return_type(field.ftype, result):
                 if result is None and error_collector:
                     return False
                 raise RuntimeError(
@@ -164,38 +170,38 @@ class Object(metaclass=ObjectType):
                     node,
                     path
                 )
-            await self.__circular_resolve__(
+            await self.__circular_resolve(
                 result, node, error_collector, path
             )
         return self
 
     @staticmethod
-    def __handle_error__(e, node, path, error_collector):
+    def __handle_error(e, node, path, error_collector):
         logging.error(e, exc_info=True)
         e.location = node.loc.source.get_location(node.loc.start)
         e.path = path
         error_collector.append(e)
 
-    async def __circular_resolve__(self, result, node, error_collector, path):
+    async def __circular_resolve(self, result, node, error_collector, path):
         if isinstance(result, Object):
-            async for obj in await result.__resolve__(
+            async for obj in await result._resolve(
                 node.selection_set.selections, error_collector, path
             ):
                 pass
         elif hasattr(result, '__iter__'):
             for item in result:
                 if isinstance(item, Object):
-                    async for _ in await item.__resolve__(
+                    async for _ in await item._resolve(
                         node.selection_set.selections,
                         error_collector,
                         path
                     ):
                         pass
 
-    async def __resolve_fragment__(self, node, error_collector, path):
+    async def __resolve_fragment(self, node, error_collector, path):
         if isinstance(node, InlineFragmentNode):
             if node.type_condition.name.value == self.__class__.__name__:
-                async for _ in await self.__resolve__(
+                async for _ in await self._resolve(
                     node.selection_set.selections,
                     error_collector
                 ):
@@ -207,7 +213,7 @@ class Object(metaclass=ObjectType):
                 if node.name.value == subroot_node.name.value:
                     current_path = copy(path)
                     current_path.append(subroot_node.name.value)
-                    async for _ in await self.__resolve__(
+                    async for _ in await self._resolve(
                         subroot_node.selection_set.selections,
                         error_collector,
                         current_path
@@ -216,7 +222,7 @@ class Object(metaclass=ObjectType):
             return True
         return False
 
-    def __get_resover__(self, name, node, field, path):
+    def __get_resover(self, name, node, field, path):
         snake_cases = to_snake_case(name)
         if not field:
             raise RuntimeError(
@@ -240,7 +246,7 @@ class Object(metaclass=ObjectType):
             )
         return resolver
 
-    def __package_args__(self, node, field, path):
+    def __package_args(self, node, field, path):
         kwargs = {}
         for arg in node.arguments:
             slot = field.params.get(to_snake_case(arg.name.value))
@@ -257,23 +263,23 @@ class Object(metaclass=ObjectType):
         return kwargs
 
     @classmethod
-    def __check_return_type__(cls, return_type, result):
+    def __check_return_type(cls, return_type, result):
         if is_optional(return_type):
             if result is None:
                 return True
-            return cls.__check_return_type__(return_type.__args__[0], result)
+            return cls.__check_return_type(return_type.__args__[0], result)
         elif is_list(return_type):
             if not isinstance(result, list):
                 return False
             if len(result) == 0:
                 return True
             for item in result:
-                if not cls.__check_return_type__(return_type.__args__[0], item):
+                if not cls.__check_return_type(return_type.__args__[0], item):
                     return False
                 return True
         elif isinstance(return_type, types.UnionType):
             for member in return_type.members:
-                if cls.__check_return_type__(member, result):
+                if cls.__check_return_type(member, result):
                     return True
         elif isinstance(result, return_type):
             return True
