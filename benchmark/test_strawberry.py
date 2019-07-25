@@ -36,7 +36,7 @@ if __name__ == '__main__':
     futures = [
         asyncio.ensure_future(
             graphql(schema, query), loop=loop
-        ) for _ in range(1000)
+        ) for _ in range(10000)
     ]
     gathered = asyncio.gather(*futures, loop=loop, return_exceptions=True)
     loop.run_until_complete(gathered)

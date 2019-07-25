@@ -211,7 +211,7 @@ Most of features are already implemented so do not panic.
 
 ## Benchmark
 
-Compare with Strawberry / graphql-core-next, Pygraphy is 4 times faster than it.
+Compare with Strawberry / graphql-core-next, Pygraphy is 4.5 times faster than it.
 
 ```
 ↳ uname -a
@@ -219,7 +219,7 @@ Darwin Workstation.local 19.0.0 Darwin Kernel Version 19.0.0: Thu Jul 11 18:37:3
 ↳ python -V
 Python 3.7.2
 ↳ time python benchmark/test_pygraphy.py
-python benchmark/test_pygraphy.py  0.43s user 0.04s system 98% cpu 0.481 total
+python benchmark/test_pygraphy.py  3.48s user 0.10s system 99% cpu 3.596 total
 ↳ time python benchmark/test_strawberry.py
-python benchmark/test_strawberry.py  1.63s user 0.04s system 99% cpu 1.678 total
+python benchmark/test_strawberry.py  16.05s user 0.16s system 99% cpu 16.257 total
 ```
