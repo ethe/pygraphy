@@ -201,9 +201,25 @@ Pygraphy is still in pre-alpha version, buggy and need stable, welcome feedback.
 
 Pygraphy **does not support** full features of GraphQL according to Spec right now, the rest part of Spec will be integrated literally in the future, it contains
   - Derectives
-  - Subscribe Method
   - ID Scalar
   - Type Extensions
   - Some Validation Check
+  - Alias Field
 
 Most of features are already implemented so do not panic.
+
+
+## Benchmark
+
+Compare with Strawberry / graphql-core-next, Pygraphy is 4.5 times faster than it.
+
+```
+↳ uname -a
+Darwin Workstation.local 19.0.0 Darwin Kernel Version 19.0.0: Thu Jul 11 18:37:36 PDT 2019; root:xnu-6153.0.59.141.4~1/RELEASE_X86_64 x86_64
+↳ python -V
+Python 3.7.2
+↳ time python benchmark/test_pygraphy.py
+python benchmark/test_pygraphy.py  3.48s user 0.10s system 99% cpu 3.596 total
+↳ time python benchmark/test_strawberry.py
+python benchmark/test_strawberry.py  16.05s user 0.16s system 99% cpu 16.257 total
+```
