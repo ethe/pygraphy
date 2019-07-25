@@ -94,7 +94,7 @@ if __name__ == '__main__':
 ## Features
 
 - Clean room Pythonic schema definition system
-- Model definition bases on Python dataclass
+- Model definition bases on Python Dataclass
 - Python Asyncio support
 - Context management bases on Python Context Variables
 - Introspection and GraphQL Playground support
@@ -112,7 +112,7 @@ By using Context Variables which is added into Python in version 3.7, Pygraphy d
 
 Also, Pygraphy is faster than graphql-core-next, you can check benchmark results as below.
 
-And more, Pygraphy clearly support stateful subscription method whith Python Asynchronous Generators, which is not elaborate in graphql-core-next.
+And more, Pygraphy clearly support stateful subscription method with Python Asynchronous Generators, which is not elaborate in graphql-core-next.
 
 ### Disadvantages
 
