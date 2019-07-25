@@ -102,11 +102,15 @@ if __name__ == '__main__':
 
 ### Advantages
 
-[GraphQL-Core-Next](https://github.com/graphql-python/graphql-core-next) is the official supporting implementation of GraphQL, and it is only a basic library. Generally, you would use Graphene or other wrapper libraries bases on it. Pygraphy is an integrated library that includes data mapping and model definition.
+[GraphQL-Core-Next](https://github.com/graphql-python/graphql-core-next) is the official supporting implementation of GraphQL, and it is only a basic library. Generally, you should use Graphene or other wrapper libraries bases on it. Pygraphy is an integrated library that includes data mapping and model definition.
 
-GraphQL-Core-Next is directly translated from GraphQL.js, this leads to some weird behaviors such as [graphql-core-next/issues/37](https://github.com/graphql-python/graphql-core-next/issues/37#issuecomment-511633135), and it is too tough to make a wrapper for walking around. Pygraphy rewrites the schema definition system in a more pythonic way. By using Python Metaclass, Pygraphy supports class-style schema definition naturally, There is no more inharmony between lambda function resolver (ugly Js style) and instance method resolver.
+GraphQL-Core-Next is directly translated from GraphQL.js, this leads to some weird behaviors such as [graphql-core-next/issues/37](https://github.com/graphql-python/graphql-core-next/issues/37#issuecomment-511633135), and it is too tough to make a wrapper for walking around. Pygraphy rewrites the schema definition system in a more pythonic way. By using Python Metaclass, Pygraphy supports class-style schema definition naturally. There is no more inharmony between lambda function resolver (ugly Js style) and instance method resolver.
+
+By using Context Variables which is added into Python in version 3.7, Pygraphy does not need to pass context through the call chain like graphql-core-next.
 
 Also, Pygraphy is faster than graphql-core-next, you can check benchmark results as below.
+
+And more, Pygraphy clearly support stateful subscription method whith Python Asynchronous Generators, which is not elaborate in graphql-core-next.
 
 ### Disadvantages
 
