@@ -21,7 +21,7 @@ async def test_starwars_query():
 
 async def test_simple_query():
     query = """
-        query something{
+        query something {
           patron {
             id
             name
@@ -32,6 +32,26 @@ async def test_simple_query():
 
     assert await SimpleSchema.execute(query, serialize=True) == \
         r'{"errors": null, "data": {"patron": {"id": "1", "name": "Syrus", "age": 27}}}'
+
+
+async def test_alias_field():
+    query = """
+        query something {
+          user: patron {
+            id
+            firstName: name
+            age
+          }
+        }
+    """
+
+    assert await SimpleSchema.execute(query) == {
+        'data': {
+            'user': {
+                'age': 27, 'firstName': 'Syrus', 'id': '1'
+            }
+        }, 'errors': None
+    }
 
 
 async def test_complex_query():
