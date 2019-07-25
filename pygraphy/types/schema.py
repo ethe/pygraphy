@@ -180,7 +180,7 @@ class Schema(Object, metaclass=SchemaType):
             )
         )
         try:
-            async for obj in await obj.__resolve__(
+            async for obj in await obj._resolve(
                 definition.selection_set.selections,
                 error_collector
             ):
