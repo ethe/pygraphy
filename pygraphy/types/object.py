@@ -126,6 +126,12 @@ class Object(metaclass=ObjectType):
 
         return self.__task_receiver(tasks, error_collector)
 
+    @staticmethod
+    def __get_field_name(name, node):
+        if node.alias:
+            return node.alias.value
+        return name
+
     async def __task_receiver(self, tasks, error_collector):
         generators = []
         for name, task in tasks.items():
@@ -141,11 +147,11 @@ class Object(metaclass=ObjectType):
                         result = None
                 else:
                     result = task
-                self.resolve_results[name] = result
+                self.resolve_results[self.__get_field_name(name, node)] = result
 
         for generator in generators:
             async for result in generator:
-                self.resolve_results[name] = result
+                self.resolve_results[self.__get_field_name(name, node)] = result
                 yield await self.__check_and_circular_resolve(tasks, error_collector)
 
         if not generators:
@@ -154,7 +160,7 @@ class Object(metaclass=ObjectType):
     async def __check_and_circular_resolve(self, tasks, error_collector):
         for name, task in tasks.items():
             task, node, field, path = task
-            result = self.resolve_results[name]
+            result = self.resolve_results[self.__get_field_name(name, node)]
             if not self.__check_return_type(field.ftype, result):
                 if result is None and error_collector:
                     return False
