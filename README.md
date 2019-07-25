@@ -3,6 +3,8 @@ A modern pythonic GraphQL implementation, painless GraphQL developing experience
 
 [![Build Status](https://travis-ci.org/ethe/pygraphy.svg?branch=master)](https://travis-ci.org/ethe/pygraphy)
 [![codecov](https://codecov.io/gh/ethe/pygraphy/branch/master/graph/badge.svg)](https://codecov.io/gh/ethe/pygraphy)
+[![pypi](https://badge.fury.io/py/pygraphy.svg)](https://pypi.org/project/pygraphy/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pygraphy.svg)](https://pypi.org/project/pygraphy/)
 
 
 ## Document
@@ -89,7 +91,7 @@ if __name__ == '__main__':
 `pip install 'pygraphy'`
 
 
-## Feature
+## Features
 
 - Clean room Pythonic schema definition system
 - Model definition bases on Python dataclass
