@@ -38,6 +38,10 @@ def to_camel_case(name):
     return '__' + res if has_prefix else res
 
 
+seprate_upper_case = re.compile("(.)([A-Z][a-z]+)")
+seprate_upper_case_behind_lower_case = re.compile("([a-z0-9])([A-Z])")
+
+
 def to_snake_case(name):
     has_prefix = False
     if '__' in name:
@@ -45,8 +49,8 @@ def to_snake_case(name):
         without_prifix_name = ''.join(name.split('__')[1:])
     else:
         without_prifix_name = name
-    s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", without_prifix_name)
-    res = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+    s1 = seprate_upper_case.sub(r"\1_\2", without_prifix_name)
+    res = seprate_upper_case_behind_lower_case.sub(r"\1_\2", s1).lower()
     return '__' + res if has_prefix else res
 
 
