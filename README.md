@@ -123,7 +123,6 @@ Pygraphy **does not support** full features of GraphQL according to Spec right n
   - ID Scalar
   - Type Extensions
   - Some Validation Check
-  - Alias Field
 
 Most of features are already implemented so do not panic.
 
