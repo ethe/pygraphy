@@ -23,7 +23,7 @@ def get_playground_html(request_path: str) -> str:
 class Schema(HTTPEndpoint, WithMetaSchema):
 
     async def get(self, request):
-        html = get_playground_html(str(request.url))
+        html = get_playground_html(request.url.path)
         return HTMLResponse(html)
 
     async def post(self, request):
