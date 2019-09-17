@@ -214,7 +214,7 @@ class Type(Object):
             types = []
             for member in list(self.type.members):
                 t = Type()
-                t._type = subclass
+                t._type = membber
                 types.append(t)
             return types
         return None
