@@ -143,7 +143,7 @@ class Object(metaclass=ObjectType):
                     try:
                         result = await task
                     except Exception as e:
-                        self.__handle_error__(e, node, path, error_collector)
+                        self.__handle_error(e, node, path, error_collector)
                         result = None
                 else:
                     result = task
