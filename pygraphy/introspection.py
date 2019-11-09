@@ -95,6 +95,9 @@ class InputValue(Object):
 
     @field
     def default_value(self) -> Optional[str]:
+        # Do not support default value of input type field
+        if not hasattr(self, '_param'):
+            return None
         default = self._param.default
         return json.dumps(default) if default != inspect._empty else None
 
@@ -207,14 +210,14 @@ class Type(Object):
             types = []
             for subclass in self.type.__subclasses__():
                 t = Type()
-                t._type = subclass
+                t._type = Optional[subclass]
                 types.append(t)
             return types
         if issubclass(self.type, Union):
             types = []
             for member in list(self.type.members):
                 t = Type()
-                t._type = member
+                t._type = Optional[member]
                 types.append(t)
             return types
         return None
@@ -228,12 +231,11 @@ class Type(Object):
             return None
         if issubclass(self.type, Input):
             values = []
-            for tfield in self.type.__fields__:
-                values.append(InputValue(
-                    name=tfield.name,
-                    description=tfield.description,
-                    default_value=None
-                ))
+            for name, tfield in self.type.__fields__.items():
+                value = InputValue()
+                value._name = name
+                value.param = tfield.ftype
+                values.append(value)
             return values
         return None
 
@@ -282,7 +284,7 @@ class Type(Object):
             return None
         if issubclass(self.type, Object) or issubclass(self.type, Interface):
             fields = []
-            for n, f in self.type.__fields__.items():
+            for f in self.type.__fields__.values():
                 field = Field()
                 field._field = f
                 fields.append(field)

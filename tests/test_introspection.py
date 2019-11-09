@@ -1,6 +1,7 @@
 import os
 import pytest
 from examples.starwars.schema import Schema
+from examples.complex_example import Schema as ComplexSchema
 
 
 pytestmark = pytest.mark.asyncio
@@ -108,7 +109,9 @@ async def test_introspection():
       }
     }"""
 
-    result = await Schema.execute(query, serialize=True)
     path = '/'.join(os.path.abspath(__file__).split('/')[:-1])
     with open(f'{path}/introspection_result', 'r') as f:
-        assert result == f.read()[:-1]
+        result = await Schema.execute(query, serialize=True)
+        assert result == f.readline()[:-1]
+        result = await ComplexSchema.execute(query, serialize=True)
+        assert result == f.readline()[:-1]
