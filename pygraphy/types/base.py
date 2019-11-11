@@ -84,7 +84,7 @@ def load_literal_value(node, ptype):
     elif isinstance(node, NullValueNode):
         return None
     elif isinstance(node, ListValueNode):
-        return [load_literal_value(v.value) for v in node.values]
+        return [load_literal_value(v.value, ptype.__args__[0]) for v in node.values]
     elif isinstance(node, EnumValueNode):
         value = getattr(ptype, node.value)
         if not value:
@@ -94,12 +94,27 @@ def load_literal_value(node, ptype):
             )
         return value
     elif isinstance(node, ObjectValueNode):
-        return ptype.__resolve__(node)
+        data = {}
+        for field in node.fields:
+            name = field.name.value
+            data[name] = load_literal_value(
+                field.value, ptype.__fields__[name].ftype)
+        return ptype(**data)
     elif isinstance(node, VariableNode):
         name = node.name.value
         variables = types.context.get().variables
         if name not in variables:
             raise RuntimeError(f'Can not find variable {name}')
-        node = parse_value(variables[name])
-        return load_literal_value(node, ptype)
+        variable = variables[name]
+        return load_variable(variable, ptype)
     raise RuntimeError(f'Can not convert {node.value}', node)
+
+
+def load_variable(variable, ptype):
+    if isinstance(ptype, types.InputType):
+        return ptype(**{key: load_variable(value, ptype.__fields__[key].ftype) for key, value in variable.items()})
+    elif is_list(ptype):
+        return [load_variable(i, ptype.__args__[0]) for i in variable]
+    else:
+        node = parse_value(str(variable))
+        return load_literal_value(node, ptype)
