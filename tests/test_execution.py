@@ -34,6 +34,20 @@ async def test_simple_query():
         r'{"errors": null, "data": {"patron": {"id": "1", "name": "Syrus", "age": 27}}}'
 
 
+    query = """
+        query {
+          patrons(ids: [1, 2, 3]) {
+            id
+            name
+            age
+          }
+        }
+    """
+
+    assert await SimpleSchema.execute(query, serialize=True) == \
+        r'{"errors": null, "data": {"patrons": [{"id": "1", "name": "Syrus", "age": 27}, {"id": "2", "name": "Syrus", "age": 27}, {"id": "3", "name": "Syrus", "age": 27}]}}'
+
+
 async def test_alias_field():
     query = """
         query something {
@@ -125,7 +139,7 @@ async def test_variables():
         r'{"errors": null, "data": {"address": {"latlng": "(32.2,12)"}}}'
 
     query = """
-        query something($patron: [Patron]) {
+        query something($patron: [int]) {
           patrons(ids: $patron) {
             id
             name
