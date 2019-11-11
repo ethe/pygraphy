@@ -121,5 +121,17 @@ async def test_variables():
         }
     """
 
-    assert await ComplexSchema.execute(query, serialize=True, variables={"geo": r"{lat:32.2, lng:12}"}) == \
+    assert await ComplexSchema.execute(query, serialize=True, variables={"geo": {"lat":32.2, "lng":12}}) == \
         r'{"errors": null, "data": {"address": {"latlng": "(32.2,12)"}}}'
+
+    query = """
+        query something($patron: [Patron]) {
+          patrons(ids: $patron) {
+            id
+            name
+            age
+          }
+        }
+    """
+    assert await SimpleSchema.execute(query, serialize=True, variables={"patron": [1, 2, 3]}) == \
+        r'{"errors": null, "data": {"patrons": [{"id": "1", "name": "Syrus", "age": 27}, {"id": "2", "name": "Syrus", "age": 27}, {"id": "3", "name": "Syrus", "age": 27}]}}'

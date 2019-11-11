@@ -41,10 +41,4 @@ class InputType(FieldableType):
 
 
 class Input(metaclass=InputType):
-
-    @classmethod
-    def __resolve__(cls, node):
-        data = {}
-        for field in node.fields:
-            data[field.name.value] = load_literal_value(field.value, cls)
-        return cls(**data)
+    pass
