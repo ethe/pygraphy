@@ -84,7 +84,7 @@ def load_literal_value(node, ptype):
     elif isinstance(node, NullValueNode):
         return None
     elif isinstance(node, ListValueNode):
-        return [load_literal_value(v.value, ptype.__args__[0]) for v in node.values]
+        return [load_literal_value(v, ptype.__args__[0]) for v in node.values]
     elif isinstance(node, EnumValueNode):
         value = getattr(ptype, node.value)
         if not value:
