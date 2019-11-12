@@ -1,4 +1,3 @@
-import json
 from graphql.language.ast import (
     IntValueNode,
     FloatValueNode,
