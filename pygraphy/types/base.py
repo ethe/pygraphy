@@ -1,4 +1,4 @@
-from graphql.language import parse_value
+import json
 from graphql.language.ast import (
     IntValueNode,
     FloatValueNode,
@@ -116,5 +116,4 @@ def load_variable(variable, ptype):
     elif is_list(ptype):
         return [load_variable(i, ptype.__args__[0]) for i in variable]
     else:
-        node = parse_value(str(variable))
-        return load_literal_value(node, ptype)
+        return variable
