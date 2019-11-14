@@ -3,3 +3,17 @@ Pygraphy supports GraphQL introspection, and it has already integrated the [Grap
 ![Playground](./static/playground.jpg)
 
 The schema of Introspection are totally wrote with Pygraphy itself: [pygraphy/introspection.py](https://github.com/ethe/pygraphy/blob/master/pygraphy/introspection.py), which proves that Pygraphy has a powerful schema declaration availability.
+
+## Playground Settings
+
+Using the attribute of schema class `PLAYGROUND_SETTINGS` and customize playground settings.
+
+```python
+class Schema(pygraphy.Schema):
+
+    PLAYGROUND_SETTINGS = {
+        "request.credentials": "same-page"
+    }
+
+    query: Optional[Query]
+```
