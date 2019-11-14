@@ -10,20 +10,23 @@ from .encoder import GraphQLEncoder
 from .types.schema import Socket
 
 
-def get_playground_html(request_path: str) -> str:
+def get_playground_html(request_path: str, settings: str) -> str:
     here = pathlib.Path(__file__).parents[0]
     path = here / "static/playground.html"
 
     with open(path) as f:
         template = f.read()
 
-    return template.replace("{{REQUEST_PATH}}", request_path)
+    return template.replace("{{REQUEST_PATH}}", request_path)\
+                   .replace("{{SETTINGS}}", json.dumps(settings))
 
 
 class Schema(HTTPEndpoint, WithMetaSchema):
 
+    PLAYGROUND_SETTINGS = {}
+
     async def get(self, request):
-        html = get_playground_html(request.url.path)
+        html = get_playground_html(request.url.path, self.PLAYGROUND_SETTINGS)
         return HTMLResponse(html)
 
     async def post(self, request):

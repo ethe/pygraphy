@@ -60,6 +60,11 @@ class Query(pygraphy.Query):
 
 @app.route('/')
 class Schema(pygraphy.Schema):
+
+    PLAYGROUND_SETTINGS = {
+        "request.credentials": "same-page"
+    }
+
     query: Optional[Query]
 
 
