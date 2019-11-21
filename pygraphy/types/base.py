@@ -13,7 +13,8 @@ from pygraphy.utils import (
     patch_indents,
     is_union,
     is_optional,
-    is_list
+    is_list,
+    to_snake_case
 )
 from pygraphy.exceptions import ValidationError
 from pygraphy import types
@@ -94,10 +95,13 @@ def load_literal_value(node, ptype):
         return value
     elif isinstance(node, ObjectValueNode):
         data = {}
+        keys = list(ptype.__dataclass_fields__.keys())
         for field in node.fields:
             name = field.name.value
+            if name not in keys:
+                name = to_snake_case(name)
             data[name] = load_literal_value(
-                field.value, ptype.__fields__[name].ftype)
+                field.value, ptype.__fields__[to_snake_case(name)].ftype)
         return ptype(**data)
     elif isinstance(node, VariableNode):
         name = node.name.value

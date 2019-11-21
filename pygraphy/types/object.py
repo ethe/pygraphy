@@ -100,11 +100,12 @@ class Object(metaclass=ObjectType):
             name = node.name.value
             snake_cases = to_snake_case(name)
             field = self.__fields__.get(snake_cases)
+            keys = list(self.__dataclass_fields__.keys())
 
             resolver = self.__get_resover(name, node, field, path)
             if not resolver:
                 try:
-                    tasks[name] = (getattr(self, snake_cases), node, field, path)
+                    tasks[name] = (getattr(self, name if name in keys else snake_cases), node, field, path)
                 except AttributeError:
                     raise RuntimeError(
                         f'{name} is not a valid node of {self}', node, path
