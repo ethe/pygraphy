@@ -14,7 +14,8 @@ from pygraphy.utils import (
     is_union,
     is_optional,
     is_list,
-    to_snake_case
+    to_snake_case,
+    to_camel_case
 )
 from pygraphy.exceptions import ValidationError
 from pygraphy import types
@@ -95,7 +96,7 @@ def load_literal_value(node, ptype):
         return value
     elif isinstance(node, ObjectValueNode):
         data = {}
-        keys = list(ptype.__dataclass_fields__.keys())
+        keys = ptype.__dataclass_fields__.keys()
         for field in node.fields:
             name = field.name.value
             if name not in keys:
@@ -115,7 +116,12 @@ def load_literal_value(node, ptype):
 
 def load_variable(variable, ptype):
     if isinstance(ptype, types.InputType):
-        return ptype(**{key: load_variable(value, ptype.__fields__[key].ftype) for key, value in variable.items()})
+        data = {}
+        keys = ptype.__dataclass_fields__.keys()
+        for key, value in variable.items():
+            snake_cases = to_snake_case(key)
+            data[snake_cases if key not in keys else key] = load_variable(value, ptype.__fields__[snake_cases].ftype)
+        return ptype(**data)
     elif is_list(ptype):
         return [load_variable(i, ptype.__args__[0]) for i in variable]
     else:

@@ -312,3 +312,54 @@ PySchema(query: Union[tests.test_definition.test_interface.<locals>.Query, NoneT
 schema {
   query: Query
 }'''
+
+
+def test_field_name_case():
+    class FooInput(Input):
+        snake_case: str
+        camelCase: str
+
+    class Foo(Object):
+        snake_case: str
+        camelCase: str
+
+    class Query(Object):
+        @field
+        def get_foo(self, foo: FooInput) -> Foo:
+            return Foo(snake_case=foo.snake_case,
+                       camelCase=foo.camelCase)
+
+    class PySchema(Schema):
+        query: Optional[Query]
+
+    assert str(PySchema) == '''"""
+Query()
+"""
+type Query {
+  getFoo(
+    foo: FooInput!
+  ): Foo!
+}
+
+"""
+Foo(snake_case: str, camelCase: str)
+"""
+type Foo {
+  snakeCase: String!
+  camelCase: String!
+}
+
+"""
+FooInput(snake_case: str, camelCase: str)
+"""
+input FooInput {
+  snakeCase: String!
+  camelCase: String!
+}
+
+"""
+PySchema(query: Union[tests.test_definition.test_field_name_case.<locals>.Query, NoneType])
+"""
+schema {
+  query: Query
+}'''
