@@ -1,4 +1,11 @@
 import pytest
+from typing import Optional
+from pygraphy.types import (
+    Object,
+    Input,
+    Schema,
+    field
+)
 from examples.starwars.schema import Schema as StarwarsSchema
 from examples.simple_example import Schema as SimpleSchema
 from examples.complex_example import Schema as ComplexSchema
@@ -149,3 +156,67 @@ async def test_variables():
     """
     assert await SimpleSchema.execute(query, serialize=True, variables={"patron": [1, 2, 3]}) == \
         r'{"errors": null, "data": {"patrons": [{"id": "1", "name": "Syrus", "age": 27}, {"id": "2", "name": "Syrus", "age": 27}, {"id": "3", "name": "Syrus", "age": 27}]}}'
+
+
+async def test_field_name_case():
+    class FooInput(Input):
+        snake_case: str
+        camelCase: str
+
+    class Foo(Object):
+        snake_case: str
+        camelCase: str
+
+    class Query(Object):
+        @field
+        def get_foo(self, foo: FooInput) -> Foo:
+            return Foo(snake_case=foo.snake_case,
+                       camelCase=foo.camelCase)
+
+    class PySchema(Schema):
+        query: Optional[Query]
+
+    query = """
+        query something($foo: FooInput) {
+          get_foo (foo: {
+            snakeCase: "sth"
+            camelCase: "sth"
+          }) {
+            snakeCase
+            camelCase
+          }
+        }
+    """
+    assert await PySchema.execute(query, serialize=True) == \
+        r'{"errors": null, "data": {"get_foo": {"snakeCase": "sth", "camelCase": "sth"}}}'
+
+
+async def test_field_name_case_with_vars():
+
+    class FooInput(Input):
+        snake_case: str
+        camelCase: str
+
+    class Foo(Object):
+        snake_case: str
+        camelCase: str
+
+    class Query(Object):
+        @field
+        def get_foo(self, foo: FooInput) -> Foo:
+            return Foo(snake_case=foo.snake_case,
+                       camelCase=foo.camelCase)
+
+    class PySchema(Schema):
+        query: Optional[Query]
+
+    query = """
+        query something($foo: FooInput) {
+          get_foo (foo: $foo) {
+            snake_case
+            camelCase
+          }
+        }
+    """
+    assert await PySchema.execute(query, serialize=True, variables={"foo": {"snakeCase":"sth", "camelCase":"sth"}}) == \
+        r'{"errors": null, "data": {"get_foo": {"snake_case": "sth", "camelCase": "sth"}}}'
