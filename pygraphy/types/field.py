@@ -26,6 +26,16 @@ if typing.TYPE_CHECKING:
     from .object import Object
 
 
+def hidden(method):
+    method.__hidden__ = True
+    return method
+
+
+def metafield(method):
+    method.__is_metafield__ = True
+    return method
+
+
 def field(method):
     """
     Mark class method as a resolver
@@ -133,5 +143,7 @@ class FieldableType(GraphQLType):
     def print_field(cls, indent=0):
         literal = ''
         for _, field in cls.__fields__.items():
+            if field.name.startswith('__'):
+                continue
             literal += f'{field}\n'
         return patch_indents(literal[:-1], indent)

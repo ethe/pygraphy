@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import contextvars
@@ -194,11 +195,6 @@ class Schema(Object, metaclass=SchemaType):
             error_collector.append(e)
         finally:
             context.reset(token)
-            return_root = {
-                'errors': error_collector if error_collector else None,
-                'data': dict(obj) if obj else None
-            }
-            yield return_root
 
 
 class Socket(ABC):
@@ -227,10 +223,9 @@ class SubscribableSchema(Schema):
     }
 
     @classmethod
-    async def execute(
-        cls,
-        socket: T,
-    ):
+    async def execute(cls, socket: T):
+        subscription_router = {}
+
         while True:
             try:
                 message = await socket.receive()
@@ -239,40 +234,130 @@ class SubscribableSchema(Schema):
                 return
             try:
                 data = json.loads(message)
-                query, variables = data['query'], data['variables']
             except Exception as e:
                 logging.error(e, exc_info=True)
-                await cls.send_error(socket, e)
+                await cls.send_connection_error(socket, e)
                 continue
 
-            document = parse(query)
-            for definition in document.definitions:
-                if not isinstance(definition, OperationDefinitionNode):
-                    continue
+            query_type, payload = data['type'], data.get('payload')
+            if query_type == 'connection_init':
+                asyncio.ensure_future(cls.start_ack_loop(socket))
+            elif query_type == 'start':
+                id = data['id']
+                variables, query = payload['variables'], payload['query']
+                task = asyncio.ensure_future(cls.subscribe(socket, id, query, variables))
+                subscription_router[id] = task
+            elif query_type == 'stop':
+                id = data['id']
+                task = subscription_router.get(id)
+                if task:
+                    task.cancel()
+                    del subscription_router[id]
+            else:
+                await cls.send_connection_error(socket, f'Unsupported message type {repr(query_type)}')
+                return
 
-                if cls.OPERATION_MAP[definition.operation] not in cls.__fields__:
-                    await cls.send_error(socket, 'This API does not support this operation')
-                    break
+    @classmethod
+    async def subscribe(cls, socket, id, query, variables):
+        document = parse(query)
+        for definition in document.definitions:
+            if not isinstance(definition, OperationDefinitionNode):
+                continue
 
-                async for operation_result in cls._execute_operation(
-                    document, definition, variables, socket
-                ):
-                    try:
-                        await socket.send(
-                            json.dumps(operation_result, cls=GraphQLEncoder)
-                        )
-                    except Exception as e:
-                        logging.error(e, exc_info=True)
+            if cls.OPERATION_MAP[definition.operation] not in cls.__fields__:
+                await cls.send_error(socket, id, 'This API does not support this operation')
                 break
 
+            async for operation_result in cls._execute_operation(
+                document, definition, variables, socket
+            ):
+                try:
+                    await socket.send(
+                        json.dumps({
+                                'type': 'data',
+                                'id': id,
+                                'payload': operation_result
+                            },
+                            cls=GraphQLEncoder
+                        )
+                    )
+                except Exception as e:
+                    logging.error(e, exc_info=True)
+                    raise
+            try:
+                await socket.send(
+                    json.dumps({
+                            'type': 'complete',
+                            'id': id,
+                        },
+                        cls=GraphQLEncoder
+                    )
+                )
+            except Exception as e:
+                logging.error(e, exc_info=True)
+                raise
+            break
+
     @staticmethod
-    async def send_error(socket, e):
-        operation_result = {
-            'errors': {
-                'message': e
-            },
-            'data': None
-        }
-        await socket.send(
-            json.dumps(operation_result, cls=GraphQLEncoder)
-        )
+    async def send_error(socket, id, e):
+        try:
+            await socket.send(
+                json.dumps({
+                        'type': 'error',
+                        'id': id,
+                        'payload': {
+                            'errors': {
+                                'message': e
+                            },
+                            'data': None
+                        }
+                    },
+                    cls=GraphQLEncoder
+                )
+            )
+        except Exception as e:
+            logging.error(e, exc_info=True)
+            raise
+
+    @staticmethod
+    async def send_connection_error(socket, e):
+        try:
+            await socket.send(
+                json.dumps({
+                        'type': 'connection_error',
+                        'payload': {
+                            'errors': {
+                                'message': e
+                            },
+                            'data': None
+                        }
+                    },
+                    cls=GraphQLEncoder
+                )
+            )
+        except Exception as e:
+            logging.error(e, exc_info=True)
+            raise
+
+    @staticmethod
+    async def start_ack_loop(socket, sleep=20):
+        try:
+            await socket.send(
+                json.dumps({
+                    'type': 'connection_ack'
+                })
+            )
+        except RuntimeError:
+            # socket closed
+            return
+        while True:
+            try:
+                await socket.send(
+                    json.dumps({
+                        'type': 'ka'
+                    })
+                )
+            except RuntimeError:
+                # socket closed
+                return
+            await asyncio.sleep(sleep)

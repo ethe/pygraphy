@@ -111,7 +111,7 @@ async def test_introspection():
 
     path = '/'.join(os.path.abspath(__file__).split('/')[:-1])
     with open(f'{path}/introspection_result', 'r') as f:
-        result = await Schema.execute(query, serialize=True)
-        assert result == f.readline()[:-1]
-        result = await ComplexSchema.execute(query, serialize=True)
-        assert result == f.readline()[:-1]
+        result1 = await Schema.execute(query, serialize=True)
+        assert result1 == f.readline()[:-1]
+        result2 = await ComplexSchema.execute(query, serialize=True)
+        assert result2 == f.readline()[:-1]
