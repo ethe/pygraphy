@@ -58,7 +58,7 @@ class Schema(HTTPEndpoint, WithMetaSchema):
         result = await self.execute(
             query, variables=variables, request=request
         )
-        status_code = status.HTTP_200_OK if not result['errors'] else status.HTTP_400_BAD_REQUEST
+        status_code = status.HTTP_200_OK
         return Response(
             json.dumps(result, cls=GraphQLEncoder),
             status_code=status_code,
