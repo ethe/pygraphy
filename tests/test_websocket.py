@@ -137,5 +137,4 @@ def test_query(client):
         data = websocket.receive_text()
         path = '/'.join(os.path.abspath(__file__).split('/')[:-1])
         with open(f'{path}/subscription_introspection', 'r') as f:
-            print(data)
             assert data == f.read()[:-1]
