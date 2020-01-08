@@ -5,6 +5,7 @@ from .types import (
     Enum,
     Object,
     field,
+    metafield,
     Schema as BaseSchema,
     SubscribableSchema as BaseSubscribableSchema,
     context,
@@ -347,12 +348,12 @@ class Schema(Object):
 
 class Query(Object):
 
-    @field
-    def __type(self, name: str) -> Optional[Type]:
+    @metafield
+    def _type(self, name: str) -> Optional[Type]:
         return None
 
-    @field
-    def __schema(self) -> Schema:
+    @metafield
+    def _schema(self) -> Schema:
         return Schema()
 
 

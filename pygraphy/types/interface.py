@@ -21,6 +21,15 @@ class InterfaceType(FieldableType):
                     description=inspect.getdoc(attr),
                     _obj=cls
                 )
+            elif hasattr(attr, '__is_metafield__'):
+                sign = inspect.signature(attr)
+                cls.__fields__[f'_{name}'] = ResolverField(
+                    name=f'_{name}',
+                    _ftype=sign.return_annotation,
+                    _params=cls.remove_self(sign.parameters),
+                    description=inspect.getdoc(attr),
+                    _obj=cls
+                )
         return cls
 
     @staticmethod

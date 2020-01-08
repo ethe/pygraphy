@@ -89,7 +89,7 @@ class StarletteSocket(Socket):
 class SubscribableSchema(WebSocketEndpoint, WithMetaSubSchema):
 
     async def on_connect(self, websocket):
-        await websocket.accept()
+        await websocket.accept(subprotocol='graphql-ws')
         socket = StarletteSocket(websocket)
         try:
             await self.execute(

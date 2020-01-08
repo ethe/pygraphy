@@ -62,7 +62,7 @@ class Query(pygraphy.Query):
 class Schema(pygraphy.Schema):
 
     PLAYGROUND_SETTINGS = {
-        "request.credentials": "same-page"
+        "request.credentials": "omit"
     }
 
     query: Optional[Query]

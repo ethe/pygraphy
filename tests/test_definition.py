@@ -23,6 +23,13 @@ def test_model_definition():
             pass
 
     assert Foo.__fields__ == {
+        '__typename': ResolverField(
+            _obj=Foo,
+            name='__typename',
+            _ftype=str,
+            description=None,
+            _params={}
+        ),
         'a': Field(name='a', _ftype=str, description=None, _obj=Foo),
         'foo': ResolverField(
             name='foo',

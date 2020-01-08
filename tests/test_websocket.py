@@ -1,4 +1,5 @@
 import os
+import json
 import pytest
 from starlette.testclient import TestClient
 
@@ -19,12 +20,14 @@ def test_subscription(client):
           }
         }
         '''
-        data = {'query': query, 'variables': None}
+        data = {'type': 'start', 'id': 1, 'payload': {'query': query, 'variables': {}}}
         websocket.send_json(data)
         start = 0
         for i in range(10):
             data = websocket.receive_json()
-            assert data == {'data': {'beat': {'beat': start, 'foo': start * 2}}, 'errors': None}
+            assert data == {'type': 'data', 'id': 1, 'payload': {
+                'data': {'beat': {'beat': start, 'foo': start * 2}}, 'errors': None}
+            }
             start += 1
 
 
@@ -129,10 +132,10 @@ def test_query(client):
             }
           }
         }"""
-        data = {'query': query, 'variables': None}
-        import json
+        data = {'type': 'start', 'id': 2, 'payload': {'query': query, 'variables': {}}}
         websocket.send_text(json.dumps(data))
         data = websocket.receive_text()
         path = '/'.join(os.path.abspath(__file__).split('/')[:-1])
         with open(f'{path}/subscription_introspection', 'r') as f:
+            print(data)
             assert data == f.read()[:-1]

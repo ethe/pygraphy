@@ -17,7 +17,7 @@ from pygraphy.utils import (
 from pygraphy import types
 from pygraphy.exceptions import RuntimeError, ValidationError
 from .interface import InterfaceType
-from .field import Field, ResolverField
+from .field import Field, ResolverField, field, metafield, hidden
 from .base import print_type, load_literal_value
 
 
@@ -233,13 +233,18 @@ class Object(metaclass=ObjectType):
             )
         if not isinstance(field, ResolverField):
             return None
-        if '__' in snake_cases:
+        if snake_cases.startswith('__'):
             resolver = getattr(
-                self, f'_{self.__class__.__name__}{snake_cases}', None
+                self, f'_{snake_cases[2:]}', None
             )
+
+            if not getattr(resolver, '__is_metafield__', False):
+                resolver = None
         else:
             resolver = getattr(self, snake_cases, None)
-        if not resolver or not resolver.__is_field__:
+            if not getattr(resolver, '__is_field__', False):
+                resolver = None
+        if not resolver:
             raise RuntimeError(
                 f"Cannot query field '{name}' on type '{type(self)}'.",
                 node,
@@ -286,3 +291,10 @@ class Object(metaclass=ObjectType):
             return True
 
         return False
+
+
+class DefaultObject(Object):
+    @hidden
+    @metafield
+    def _typename(self) -> str:
+        return type(self).__name__
