@@ -49,7 +49,7 @@ class SchemaType(ObjectType):
                     if ptype.__name__ not in existing_type_name:
                         cls.registered_type.append(ptype)
 
-        # Schema does not need dataclass
+        # Schema does not need to be a dataclass
         without_dataclass.__fields__ = cls.__fields__
         without_dataclass.__description__ = cls.__description__
         without_dataclass.registered_type = cls.registered_type

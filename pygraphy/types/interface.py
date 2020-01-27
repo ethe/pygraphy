@@ -12,19 +12,16 @@ class InterfaceType(FieldableType):
         cls = super().__new__(cls, name, bases, attrs)
         for name in dir(cls):
             attr = getattr(cls, name)
+            field_name = None
             if hasattr(attr, '__is_field__'):
-                sign = inspect.signature(attr)
-                cls.__fields__[to_snake_case(name)] = ResolverField(
-                    name=to_snake_case(name),
-                    _ftype=sign.return_annotation,
-                    _params=cls.remove_self(sign.parameters),
-                    description=inspect.getdoc(attr),
-                    _obj=cls
-                )
+                field_name = to_snake_case(name)
             elif hasattr(attr, '__is_metafield__'):
+                field_name = f'_{name}'
+
+            if field_name:
                 sign = inspect.signature(attr)
-                cls.__fields__[f'_{name}'] = ResolverField(
-                    name=f'_{name}',
+                cls.__fields__[field_name] = ResolverField(
+                    name=field_name,
                     _ftype=sign.return_annotation,
                     _params=cls.remove_self(sign.parameters),
                     description=inspect.getdoc(attr),

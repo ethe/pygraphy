@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from inspect import isawaitable
+from inspect import isawaitable, _empty
 from copy import copy
 from graphql.language.ast import (
     FragmentSpreadNode,
@@ -50,6 +50,9 @@ class ObjectType(InterfaceType):
         for _, field in cls.__fields__.items():
             if not isinstance(field, (Field, ResolverField)):
                 raise ValidationError(f'{field} is an invalid field type')
+
+            if field.ftype == _empty:
+                raise ValidationError(f'The return type of resolver "{cls.__name__}.{field.name}" must not be empty')
 
             print_type(field.ftype, except_types=(types.InputType))
 

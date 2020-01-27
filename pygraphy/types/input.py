@@ -9,6 +9,9 @@ from .union import UnionType
 class InputType(FieldableType):
 
     def validate(cls):
+        if cls.__validated__:
+            return
+        cls.__validated__ = True
         for _, field in cls.__fields__.items():
             if not isinstance(field, Field):
                 raise ValidationError(f'{field} is an invalid field type')
