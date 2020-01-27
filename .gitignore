@@ -107,4 +107,3 @@ venv.bak/
 node_modules/
 package-lock.json
 .vscode/
-test*
