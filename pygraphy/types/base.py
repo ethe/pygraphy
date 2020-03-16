@@ -124,5 +124,7 @@ def load_variable(variable, ptype):
         return ptype(**data)
     elif is_list(ptype):
         return [load_variable(i, ptype.__args__[0]) for i in variable]
+    elif isinstance(ptype, types.EnumType):
+        return getattr(ptype, variable)
     else:
         return variable
