@@ -339,10 +339,20 @@ class Schema(Object):
     @field
     def types(self) -> List[Type]:
         types = []
+        self.init_scalars(types)
         for t in context.get().schema.registered_type:
             type = Type()
             type._type = Optional[t]
             types.append(type)
+        return types
+
+    @staticmethod
+    def init_scalars(types):
+        scalars = [int, float, str, bool]
+        for scalar in scalars:
+            t = Type()
+            t._type = Optional[scalar]
+            types.append(t)
         return types
 
 
