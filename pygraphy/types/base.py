@@ -74,6 +74,8 @@ def print_type(gtype, nonnull=True, except_types=()):
 
 
 def load_literal_value(node, ptype):
+    if is_optional(ptype):
+        return load_literal_value(node, ptype.__args__[0])
     if isinstance(node, IntValueNode):
         return int(node.value)
     elif isinstance(node, FloatValueNode):
